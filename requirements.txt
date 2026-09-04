@@ -1,0 +1,2 @@
+# No third-party dependencies needed - everything here uses only the
+# Python standard library (urllib for the Redis + Claude API calls).
