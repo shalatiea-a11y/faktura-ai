@@ -2,6 +2,9 @@
   "rewrites": [
     { "source": "/api/extract", "destination": "/api/index" },
     { "source": "/api/invoices", "destination": "/api/index" },
+    { "source": "/api/companies", "destination": "/api/index" },
+    { "source": "/api/files", "destination": "/api/index" },
+    { "source": "/api/cron/check-mail", "destination": "/api/index" },
     { "source": "/", "destination": "/index.html" }
   ],
   "headers": [
@@ -13,5 +16,11 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     }
-  ]
+  ],
+  "crons": [
+    { "path": "/api/cron/check-mail", "schedule": "0 5 * * *" }
+  ],
+  "functions": {
+    "api/index.py": { "maxDuration": 60 }
+  }
 }

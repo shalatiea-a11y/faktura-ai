@@ -95,6 +95,7 @@ td.num { text-align: right; font-family: var(--font-display); white-space: nowra
       <select id="company-select"><option value="">Välj klientföretag…</option></select>
       <button class="btn ghost small" id="new-company-btn">+ Ny klient</button>
     </div>
+    <div class="msg" id="company-mail-hint" style="margin-top:-14px;margin-bottom:22px;"></div>
 
     <div class="card">
       <h2>Ladda upp fakturor</h2>
@@ -166,9 +167,20 @@ function renderCompanySelect() {
   if (prev && companies.some((c) => c.id === prev)) sel.value = prev;
 }
 
+function renderMailHint() {
+  const hint = document.getElementById('company-mail-hint');
+  const company = companies.find((c) => c.id === currentCompanyId);
+  if (company && company.code) {
+    hint.innerHTML = `📧 Fakturor kan även mejlas in automatiskt: be avsändaren skriva <b>${company.code}</b> i ämnesraden och skicka till er fakturamejladress (kollas en gång/dygn).`;
+  } else {
+    hint.innerHTML = '';
+  }
+}
+
 document.getElementById('company-select').addEventListener('change', async (e) => {
   currentCompanyId = e.target.value;
   updateScanBtnState();
+  renderMailHint();
   if (currentCompanyId) {
     await loadInvoices();
   } else {
@@ -189,6 +201,7 @@ document.getElementById('new-company-btn').addEventListener('click', async () =>
     currentCompanyId = data.company.id;
     document.getElementById('company-select').value = currentCompanyId;
     updateScanBtnState();
+    renderMailHint();
     await loadInvoices();
   }
 });

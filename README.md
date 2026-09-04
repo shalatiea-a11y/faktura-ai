@@ -41,6 +41,28 @@ Python serverless API på Vercel + delad Redis-databas (Upstash).
 kostnad, redan inräknad i affärsmodellens pris). Utan `ANTHROPIC_API_KEY`
 visar appen ett tydligt felmeddelande istället för att krascha.
 
+### 5. (Valfritt) Automatisk mejl-in
+Fakturor som mejlas till en dedikerad inkorg hämtas och bearbetas automatiskt
+en gång om dagen (gratis-gränsen på Vercel tillåter cron-jobb max en
+gång/dygn - vill ni ha det snabbare krävs Vercel Pro).
+
+1. Skapa ett **nytt, dedikerat Gmail-konto** bara för fakturor (t.ex.
+   `dinbyra.fakturor@gmail.com`) - inte ert vanliga konto.
+2. På det kontot: **Google Account → Security → 2-Step Verification** (slå på
+   om det inte redan är på) → **App passwords** → skapa ett för "Mail",
+   kopiera de 16 tecknen.
+3. **Settings → Environment Variables** i Vercel, lägg till:
+   - `MAIL_ADDRESS` = den nya Gmail-adressen
+   - `MAIL_APP_PASSWORD` = de 16 tecknen från steg 2
+   - `CRON_SECRET` = en slumpad sträng (minst 16 tecken) - skyddar
+     cron-endpointen från att triggas av utomstående
+4. Redeploy.
+5. Ge den nya mejladressen till byrån. Varje klientföretag i appen får en
+   kort **kod** (visas i appen när man valt klienten, t.ex. "KALLES") - be
+   den som skickar fakturan skriva koden i ämnesraden så hamnar den rätt.
+   Mejl utan igenkänd kod hamnar i en "Okategoriserat"-klient istället för
+   att försvinna, så inget går förlorat.
+
 ## Testa lokalt innan du visar kunden
 ```
 python3 _local_test_server.py 8130
@@ -74,13 +96,30 @@ python3 _local_test_server.py 8130
   ta bort, dubblettkontroll.
 - `api/_companies_logic.py` - klientföretag per byrå.
 - `api/_files_logic.py` - sparar originalfilen (bild/PDF) i databasen.
+- `api/_mail_logic.py` - Vercel Cron (en gång/dygn) kollar en Gmail-inkorg
+  via IMAP (stdlib `imaplib`, ingen OAuth) och kör varje bilaga genom samma
+  pipeline som manuell uppladdning.
 - `api/_store.py` - Redis-klient (hash-baserad för uppslagning/uppdatering
   per id, samma mönster som Invoicer).
 - `api/_auth.py` - kollar `CLIENT_KEY`.
 - `_local_test_server.py` - **lokalt testverktyg, deployas inte.**
+
+## Bokföringssystem (Fortnox m.fl.)
+Ingen direktkoppling mot Fortnox eller annat bokföringssystem än - byrån
+exporterar CSV och bifogar den manuellt i Fortnox. En riktig Fortnox-koppling
+(automatiskt förbereda betalning, byrån bara godkänner) kräver att man
+registrerar sig som utvecklare hos Fortnox och blir godkänd som
+integrationspartner - det är en process på Fortnox sida, inte något som går
+att bygga runt. Om/när ni vill gå den vägen: registrera er på
+fortnox.se/developer/developer-portal så är den processen igång medan vi
+bygger annat; kopplingen görs då som ett utbytbart modul-lager så andra
+bokföringssystem kan stödjas på samma sätt.
 
 ## Nästa steg (efter att första kunden sagt ja)
 - En egen `CLIENT_KEY` per byrå istället för en delad (flera byråer samtidigt)
 - Stripe-prenumeration för betalning
 - SIE-filexport som alternativ till CSV
 - Flera valutor (just nu bara SEK)
+- Fortnox-koppling (se ovan) eller snabbare mejl-in (Vercel Pro, eller en
+  mejltjänst med webhook för nästan direkt bearbetning istället för en
+  gång/dygn)

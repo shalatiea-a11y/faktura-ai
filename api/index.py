@@ -16,6 +16,7 @@ import _extract_logic as extract_logic  # noqa: E402
 import _invoices_logic as invoices_logic  # noqa: E402
 import _companies_logic as companies_logic  # noqa: E402
 import _files_logic as files_logic  # noqa: E402
+import _mail_logic as mail_logic  # noqa: E402
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..')
 
@@ -33,6 +34,16 @@ class handler(BaseHTTPRequestHandler):
 
         if path in STATIC_PAGES:
             self._send_html(STATIC_PAGES[path])
+            return
+
+        if path.startswith('/api/cron/check-mail'):
+            expected = os.environ.get('CRON_SECRET')
+            auth = self.headers.get('Authorization', '')
+            if not expected or auth != f'Bearer {expected}':
+                self._send(401, {'error': 'unauthorized'})
+                return
+            code, payload = mail_logic.check_inbox()
+            self._send(code, payload)
             return
 
         if path.startswith('/api/companies'):
