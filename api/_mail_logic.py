@@ -104,13 +104,13 @@ def check_inbox():
                 import base64
                 b64data = base64.b64encode(payload).decode()
 
-                fcode, fpayload = files_logic.save_file(client_key, content_type, b64data)
+                fcode, fpayload = files_logic.save_file(client_key, content_type, b64data, filename)
                 if fcode != 200:
                     results['errors'].append(f'{subject}: kunde inte spara fil')
                     continue
                 file_id = fpayload['file_id']
 
-                ecode, epayload = extract_logic.extract_invoices(client_key, content_type, b64data)
+                ecode, epayload = extract_logic.extract_invoices(client_key, content_type, b64data, filename)
                 if ecode != 200:
                     results['errors'].append(f'{subject}: AI-läsning misslyckades ({epayload.get("error")})')
                     continue

@@ -234,7 +234,35 @@ function fileToBase64(file) {
   });
 }
 
-function setProgressRow(name, statusClass, statusText) {
+class ApiError extends Error {
+  constructor(code, detail) {
+    super(code);
+    this.detail = detail;
+  }
+}
+
+const ERROR_MESSAGES = {
+  forbidden: 'Fel nyckel',
+  ai_not_configured: 'AI ej konfigurerad (saknar ANTHROPIC_API_KEY)',
+  store_not_configured: 'Databasen är inte kopplad',
+  missing_fields: 'Filen kunde inte läsas',
+  file_too_large: 'Filen är för stor (max ca 8 MB)',
+  file_save_failed: 'Kunde inte spara filen',
+  unsupported_file_type: 'Filtypen stöds inte (endast PDF, JPG, PNG, WEBP, GIF)',
+  ai_request_failed: 'AI-anropet misslyckades',
+  ai_bad_response: 'Oväntat svar från AI',
+  ai_no_json: 'AI:n svarade utan läsbar data',
+  ai_invalid_json: 'AI:n svarade med trasig data',
+  extract_failed: 'Kunde inte läsa fakturan',
+};
+
+function describeError(err) {
+  const code = err && err.message;
+  const base = ERROR_MESSAGES[code] || code || 'Okänt fel';
+  return err && err.detail ? `${base} (${err.detail})` : base;
+}
+
+function setProgressRow(name, statusClass, statusText, title) {
   const list = document.getElementById('progress-list');
   let row = list.querySelector(`[data-file="${CSS.escape(name)}"]`);
   if (!row) {
@@ -247,6 +275,7 @@ function setProgressRow(name, statusClass, statusText) {
   const statusEl = row.querySelector('.status');
   statusEl.className = `status ${statusClass}`;
   statusEl.innerHTML = statusText;
+  statusEl.title = title || '';
 }
 
 document.getElementById('scan-btn').addEventListener('click', async () => {
@@ -271,18 +300,18 @@ document.getElementById('scan-btn').addEventListener('click', async () => {
 
       const fileRes = await fetch('/api/files', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: clientKey, media_type: file.type, data }),
+        body: JSON.stringify({ key: clientKey, media_type: file.type, filename: file.name, data }),
       });
       const fileResult = await fileRes.json();
-      if (!fileRes.ok) throw new Error(fileResult.error || 'file_save_failed');
+      if (!fileRes.ok) throw new ApiError(fileResult.error || 'file_save_failed', fileResult.detail);
       const fileId = fileResult.file_id;
 
       const extractRes = await fetch('/api/extract', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: clientKey, media_type: file.type, data }),
+        body: JSON.stringify({ key: clientKey, media_type: file.type, filename: file.name, data }),
       });
       const extractResult = await extractRes.json();
-      if (!extractRes.ok) throw new Error(extractResult.error || 'extract_failed');
+      if (!extractRes.ok) throw new ApiError(extractResult.error || 'extract_failed', extractResult.detail);
 
       const items = extractResult.invoices || [];
       let anyReview = false;
@@ -303,7 +332,9 @@ document.getElementById('scan-btn').addEventListener('click', async () => {
         okCount++;
       }
     } catch (e) {
-      setProgressRow(file.name, 'error', `✗ ${e.message === 'ai_not_configured' ? 'AI ej konfigurerad' : 'Fel'}`);
+      const reason = describeError(e);
+      const short = reason.length > 50 ? reason.slice(0, 50) + '…' : reason;
+      setProgressRow(file.name, 'error', `✗ ${short}`, reason);
       errorCount++;
     }
   }

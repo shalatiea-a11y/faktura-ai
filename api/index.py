@@ -73,15 +73,17 @@ class handler(BaseHTTPRequestHandler):
         if path.startswith('/api/extract'):
             media_type = body.get('media_type') or ''
             data = body.get('data') or ''
+            filename = body.get('filename') or ''
             try:
-                code, payload = extract_logic.extract_invoices(key, media_type, data)
+                code, payload = extract_logic.extract_invoices(key, media_type, data, filename)
             except Exception as e:
                 code, payload = 500, {'error': str(e)}
 
         elif path.startswith('/api/files'):
             media_type = body.get('media_type') or ''
             data = body.get('data') or ''
-            code, payload = files_logic.save_file(key, media_type, data)
+            filename = body.get('filename') or ''
+            code, payload = files_logic.save_file(key, media_type, data, filename)
 
         elif path.startswith('/api/companies'):
             code, payload = companies_logic.add_company(key, body.get('name'))

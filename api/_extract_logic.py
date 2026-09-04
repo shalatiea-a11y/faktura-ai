@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 
 from _auth import check_key
+from _media import resolve_media_type, SUPPORTED
 
 MODEL = 'claude-sonnet-5'
 
@@ -40,13 +41,17 @@ PROMPT = (
 )
 
 
-def extract_invoices(key, media_type, base64_data):
+def extract_invoices(key, media_type, base64_data, filename=None):
     if not check_key(key):
         return 403, {'error': 'forbidden'}
 
     api_key = os.environ.get('ANTHROPIC_API_KEY')
     if not api_key:
         return 503, {'error': 'ai_not_configured'}
+
+    media_type = resolve_media_type(media_type, filename)
+    if media_type not in SUPPORTED:
+        return 400, {'error': 'unsupported_file_type'}
 
     if media_type == 'application/pdf':
         content_block = {

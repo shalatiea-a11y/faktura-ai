@@ -35,7 +35,7 @@ os.environ['CLIENT_KEY'] = 'demo123'
 
 import _extract_logic
 
-def fake_extract_invoices(key, media_type, data):
+def fake_extract_invoices(key, media_type, data, filename=None):
     from _auth import check_key
     if not check_key(key):
         return 403, {'error': 'forbidden'}
