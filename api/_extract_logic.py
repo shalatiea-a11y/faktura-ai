@@ -14,7 +14,7 @@ import re
 import urllib.error
 import urllib.request
 
-from _auth import check_key
+from _auth import verify_session
 from _media import resolve_media_type, SUPPORTED
 
 MODEL = 'claude-sonnet-5'
@@ -42,9 +42,14 @@ PROMPT = (
 
 
 def extract_invoices(key, media_type, base64_data, filename=None):
-    if not check_key(key):
+    if not verify_session(key):
         return 403, {'error': 'forbidden'}
+    return _extract_invoices_internal(media_type, base64_data, filename)
 
+
+def _extract_invoices_internal(media_type, base64_data, filename=None):
+    """No auth check - for server-side callers (the mail cron) that already
+    know the trusted firm they're processing and have no session token."""
     api_key = os.environ.get('ANTHROPIC_API_KEY')
     if not api_key:
         return 503, {'error': 'ai_not_configured'}

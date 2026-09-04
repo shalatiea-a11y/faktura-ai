@@ -31,13 +31,13 @@ store_mod.hget = fake_hget
 store_mod.hgetall = fake_hgetall
 store_mod.hdel = fake_hdel
 
-os.environ['CLIENT_KEY'] = 'demo123'
+os.environ['SESSION_SECRET'] = 'dev-secret-local-only'
 
 import _extract_logic
 
 def fake_extract_invoices(key, media_type, data, filename=None):
-    from _auth import check_key
-    if not check_key(key):
+    from _auth import verify_session
+    if not verify_session(key):
         return 403, {'error': 'forbidden'}
     return 200, {'ok': True, 'invoices': [{
         'leverantor': 'Testleverantör AB',

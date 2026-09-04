@@ -1,30 +1,30 @@
-"""Checks a dedicated Gmail inbox for new emailed invoices, once a day (via
-Vercel Cron - see vercel.json), and runs each PDF/image attachment through
-the exact same extract -> validate -> save pipeline used by manual uploads.
+"""Checks each firm's dedicated Gmail inbox for new emailed invoices, once a
+day (via Vercel Cron - see vercel.json), and runs each PDF/image attachment
+through the exact same extract -> validate -> save pipeline used by manual
+uploads.
 
 Uses Python's stdlib imaplib with a Gmail "app password" - same low-tech
 approach as the SMTP sending in the Bahaa Sax project, no OAuth needed.
 
-Needs three environment variables:
-  MAIL_ADDRESS       - the dedicated Gmail address invoices are forwarded to
-  MAIL_APP_PASSWORD  - a Gmail "app password" for that account
-  CLIENT_KEY         - reused from the rest of the app (this runs as the
-                       same trusted server process, so it authenticates
-                       itself with the app's own key)
+Since accounts moved from one shared CLIENT_KEY to one account per firm,
+mail credentials moved with them: each firm plugs in its own inbox from the
+Inställningar page (_users_logic.py) instead of a single global env var
+pair, and this cron loops over every firm that has done so.
 
-An email whose subject doesn't contain any company's code lands in a
+An email whose subject doesn't contain any client company's code lands in a
 fallback "Okategoriserat" company instead of being silently dropped, so the
 byrå can re-assign it by hand later.
 """
+import base64
 import email
 import imaplib
-import os
 from email.header import decode_header
 
 import _companies_logic as companies_logic
 import _files_logic as files_logic
 import _extract_logic as extract_logic
 import _invoices_logic as invoices_logic
+import _users_logic as users_logic
 
 ALLOWED_TYPES = ('application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic')
 
@@ -42,22 +42,15 @@ def _decode(value):
     return ''.join(out)
 
 
-def _get_or_create_uncategorized(key):
-    code, payload = companies_logic.list_companies(key)
-    for c in payload.get('companies', []):
+def _get_or_create_uncategorized(uid):
+    for c in companies_logic._list_companies_for(uid).get('companies', []):
         if c.get('code') == 'OKATEGORISERAT':
             return c
-    code, payload = companies_logic.add_company(key, 'Okategoriserat')
+    _, payload = companies_logic._add_company_for(uid, 'Okategoriserat')
     return payload.get('company')
 
 
-def check_inbox():
-    mail_address = os.environ.get('MAIL_ADDRESS')
-    mail_password = os.environ.get('MAIL_APP_PASSWORD')
-    client_key = os.environ.get('CLIENT_KEY')
-    if not mail_address or not mail_password or not client_key:
-        return 503, {'error': 'mail_not_configured'}
-
+def _check_one_inbox(uid, mail_address, mail_password):
     results = {'checked': 0, 'processed': 0, 'invoices_added': 0, 'errors': []}
 
     try:
@@ -66,10 +59,12 @@ def check_inbox():
         conn.select('INBOX')
         status, data = conn.search(None, 'UNSEEN')
         if status != 'OK':
-            return 502, {'error': 'imap_search_failed'}
+            results['errors'].append('imap_search_failed')
+            return results
         msg_ids = data[0].split()
     except Exception as e:
-        return 502, {'error': 'imap_connect_failed', 'detail': str(e)}
+        results['errors'].append(f'imap_connect_failed: {e}')
+        return results
 
     uncategorized = None
 
@@ -82,10 +77,10 @@ def check_inbox():
             msg = email.message_from_bytes(msg_data[0][1])
             subject = _decode(msg.get('Subject', ''))
 
-            company = companies_logic.match_company_by_text(subject)
+            company = companies_logic._match_company_by_text_for(uid, subject)
             if not company:
                 if uncategorized is None:
-                    uncategorized = _get_or_create_uncategorized(client_key)
+                    uncategorized = _get_or_create_uncategorized(uid)
                 company = uncategorized
 
             attachment_found = False
@@ -101,22 +96,21 @@ def check_inbox():
                     continue
                 attachment_found = True
 
-                import base64
                 b64data = base64.b64encode(payload).decode()
 
-                fcode, fpayload = files_logic.save_file(client_key, content_type, b64data, filename)
+                fcode, fpayload = files_logic._save_file_for(uid, content_type, b64data, filename)
                 if fcode != 200:
                     results['errors'].append(f'{subject}: kunde inte spara fil')
                     continue
                 file_id = fpayload['file_id']
 
-                ecode, epayload = extract_logic.extract_invoices(client_key, content_type, b64data, filename)
+                ecode, epayload = extract_logic._extract_invoices_internal(content_type, b64data, filename)
                 if ecode != 200:
                     results['errors'].append(f'{subject}: AI-läsning misslyckades ({epayload.get("error")})')
                     continue
 
                 for fields in epayload.get('invoices', []):
-                    icode, ipayload = invoices_logic.add_invoice(client_key, company['id'], fields, file_id)
+                    icode, ipayload = invoices_logic._add_invoice_for(uid, company['id'], fields, file_id)
                     if icode == 200:
                         results['invoices_added'] += 1
 
@@ -131,4 +125,16 @@ def check_inbox():
     except Exception:
         pass
 
-    return 200, results
+    return results
+
+
+def check_inbox():
+    firms = users_logic.list_mail_enabled_users()
+    if not firms:
+        return 200, {'checked_firms': 0, 'note': 'no firm has configured a mail-in inbox yet'}
+
+    per_firm = {}
+    for user in firms:
+        per_firm[user['email']] = _check_one_inbox(user['id'], user['mail_address'], user['mail_app_password'])
+
+    return 200, {'checked_firms': len(firms), 'results': per_firm}

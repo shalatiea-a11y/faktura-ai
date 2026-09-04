@@ -4,8 +4,14 @@
     { "source": "/api/invoices", "destination": "/api/index" },
     { "source": "/api/companies", "destination": "/api/index" },
     { "source": "/api/files", "destination": "/api/index" },
+    { "source": "/api/account", "destination": "/api/index" },
+    { "source": "/api/auth/signup", "destination": "/api/index" },
+    { "source": "/api/auth/login", "destination": "/api/index" },
     { "source": "/api/cron/check-mail", "destination": "/api/index" },
-    { "source": "/", "destination": "/index.html" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/login.html", "destination": "/api/index" },
+    { "source": "/signup.html", "destination": "/api/index" },
+    { "source": "/app.html", "destination": "/api/index" }
   ],
   "headers": [
     {

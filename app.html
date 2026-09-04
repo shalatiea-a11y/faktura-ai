@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Fakturaskanning</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<style>
+:root {
+  --bg: #f3f6fb; --surface: #ffffff; --surface-2: #f8fafc; --border: #e2e8f0;
+  --ink: #0f172a; --ink-dim: #475569; --ink-faint: #94a3b8;
+  --primary: #2563eb; --primary-dark: #1d4ed8; --primary-light: #eff6ff;
+  --success: #16a34a; --success-bg: #ecfdf3;
+  --warn: #d97706; --warn-bg: #fffbeb;
+  --error: #dc2626; --error-bg: #fef2f2;
+  --sidebar-bg: #0f1a30; --sidebar-ink: #94a3b8; --sidebar-ink-active: #ffffff;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(15,23,42,0.05), 0 4px 14px rgba(15,23,42,0.06);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); min-height: 100vh; }
+
+.shell { display: flex; min-height: 100vh; }
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+  width: 240px; flex: none; background: var(--sidebar-bg); color: var(--sidebar-ink);
+  display: flex; flex-direction: column; padding: 22px 16px; position: fixed; top: 0; bottom: 0; left: 0;
+  z-index: 40; transition: transform 0.2s ease;
+}
+.sidebar-logo { display: flex; align-items: center; gap: 10px; padding: 0 8px 24px; }
+.logo-mark {
+  width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), #60a5fa);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 14px; flex: none;
+}
+.logo-text { font-weight: 800; font-size: 15px; color: #fff; letter-spacing: -0.01em; }
+.nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.nav-item {
+  display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 8px; border: none;
+  background: transparent; color: var(--sidebar-ink); font-family: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; text-align: left; width: 100%;
+}
+.nav-item .ic { font-size: 16px; width: 18px; text-align: center; flex: none; }
+.nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.nav-item.active { background: var(--primary); color: #fff; font-weight: 600; }
+.sidebar-foot { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px; margin-top: 10px; }
+.sidebar-firm { font-size: 13px; font-weight: 700; color: #fff; padding: 0 4px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-email { font-size: 11.5px; color: var(--sidebar-ink); padding: 0 4px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logout-btn {
+  width: 100%; background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--sidebar-ink);
+  border-radius: 8px; padding: 8px; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.logout-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+.sidebar-backdrop { display: none; }
+
+/* ---------- Main area ---------- */
+.main { flex: 1; margin-left: 240px; display: flex; flex-direction: column; min-width: 0; }
+.topbar {
+  display: none; align-items: center; gap: 12px; padding: 14px 20px; background: var(--surface);
+  border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 20;
+}
+.hamburger { background: none; border: 1px solid var(--border); border-radius: 8px; width: 36px; height: 36px; font-size: 16px; cursor: pointer; }
+.topbar-title { font-weight: 700; font-size: 15px; }
+.content { padding: 30px 34px 60px; max-width: 1080px; width: 100%; }
+
+.section { display: none; }
+.section.active { display: block; }
+
+h1.page-title { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+.page-sub { color: var(--ink-dim); font-size: 13.5px; margin-bottom: 24px; }
+
+/* ---------- Shared components ---------- */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
+.card h2 { font-size: 15px; margin: 0 0 16px; display: flex; align-items: center; justify-content: space-between; }
+label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-dim); margin: 14px 0 6px; }
+label:first-child { margin-top: 0; }
+input[type=text], input[type=date], input[type=number], input[type=email], input[type=password], select {
+  width: 100%; padding: 10px 11px; border-radius: 8px; border: 1px solid var(--border);
+  background: #fff; color: var(--ink); font-family: inherit; font-size: 14px;
+}
+input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--primary); color: #fff;
+  border: none; border-radius: 8px; padding: 10px 16px; font-weight: 700; font-size: 13.5px;
+  cursor: pointer; font-family: inherit; transition: background 0.15s;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--ink); }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn.block { width: 100%; }
+.btn.small { padding: 6px 11px; font-size: 12px; }
+.btn.danger { background: transparent; border: 1px solid #fca5a5; color: var(--error); }
+.btn.danger:hover { background: var(--error-bg); }
+.company-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.company-bar select { flex: 1; min-width: 180px; }
+.file-drop {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 26px; text-align: center;
+  color: var(--ink-faint); font-size: 14px; cursor: pointer; background: var(--surface-2);
+}
+.file-drop.has-files { border-color: var(--primary); color: var(--ink); background: var(--primary-light); }
+#file-input { display: none; }
+.msg { font-size: 13px; margin-top: 12px; }
+.msg.error { color: var(--error); }
+.msg.success { color: var(--success); }
+.progress-list { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.progress-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 8px 10px; background: var(--surface-2); border-radius: 6px; }
+.progress-row .status { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.progress-row .status.waiting { color: var(--ink-faint); }
+.progress-row .status.working { color: var(--primary); }
+.progress-row .status.ok { color: var(--success); }
+.progress-row .status.review { color: var(--warn); }
+.progress-row .status.error { color: var(--error); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--ink-faint); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.empty { color: var(--ink-faint); font-size: 14px; padding: 20px 0; text-align: center; }
+.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; flex: 0 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; cursor: default; }
+.badge.ok { background: var(--success-bg); color: var(--success); }
+.badge.review { background: var(--warn-bg); color: var(--warn); }
+.row-actions { display: flex; gap: 6px; }
+.edit-row td { background: var(--surface-2); }
+.edit-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.edit-grid input { font-size: 13px; padding: 7px; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- Dashboard stat cards ---------- */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; }
+.stat-label { font-size: 12px; color: var(--ink-dim); font-weight: 600; margin-bottom: 8px; }
+.stat-value { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+.stat-value.warn { color: var(--warn); }
+.stat-value.primary { color: var(--primary); }
+
+/* ---------- Settings ---------- */
+.settings-hint { font-size: 12.5px; color: var(--ink-dim); line-height: 1.6; background: var(--surface-2); border-radius: 8px; padding: 12px 14px; margin-top: 12px; }
+.mail-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+.mail-status .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); }
+.mail-status.on .dot { background: var(--success); }
+.mail-status.on { color: var(--success); }
+
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-backdrop.show { display: block; position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 30; }
+  .main { margin-left: 0; }
+  .topbar { display: flex; }
+  .content { padding: 22px 16px 50px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .edit-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .edit-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo"><div class="logo-mark">F</div><div class="logo-text">Fakturaskanning</div></div>
+    <nav class="nav">
+      <button class="nav-item active" data-section="dashboard"><span class="ic">📊</span> Översikt</button>
+      <button class="nav-item" data-section="invoices"><span class="ic">🧾</span> Fakturor</button>
+      <button class="nav-item" data-section="settings"><span class="ic">⚙️</span> Inställningar</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="sidebar-firm" id="sidebar-firm">–</div>
+      <div class="sidebar-email" id="sidebar-email">–</div>
+      <button class="logout-btn" id="logout-btn">Logga ut</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div class="topbar-title" id="topbar-title">Översikt</div>
+    </header>
+
+    <div class="content">
+
+      <section class="section active" id="section-dashboard">
+        <h1 class="page-title">Översikt</h1>
+        <div class="page-sub">Läget för alla era klienter, i korthet.</div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">Klienter</div><div class="stat-value" id="stat-companies">–</div></div>
+          <div class="stat-card"><div class="stat-label">Sparade fakturor</div><div class="stat-value" id="stat-invoices">–</div></div>
+          <div class="stat-card"><div class="stat-label">Behöver kontroll</div><div class="stat-value warn" id="stat-review">–</div></div>
+          <div class="stat-card"><div class="stat-label">Totalt belopp</div><div class="stat-value primary" id="stat-total">–</div></div>
+        </div>
+        <div class="card">
+          <h2>Senaste fakturorna</h2>
+          <div id="recent-list"><div class="empty">Laddar…</div></div>
+        </div>
+      </section>
+
+      <section class="section" id="section-invoices">
+        <h1 class="page-title">Fakturor</h1>
+        <div class="page-sub">Välj klient, ladda upp fakturor och låt AI:n läsa av dem.</div>
+
+        <div class="company-bar">
+          <select id="company-select"><option value="">Välj klientföretag…</option></select>
+          <button class="btn ghost small" id="new-company-btn">+ Ny klient</button>
+        </div>
+        <div class="msg" id="company-mail-hint" style="margin-bottom:18px;"></div>
+
+        <div class="card">
+          <h2>Ladda upp fakturor</h2>
+          <div class="file-drop" id="file-drop">
+            <div id="file-drop-label">Klicka för att välja bilder/PDF:er (upp till 20 st samtidigt)</div>
+          </div>
+          <input type="file" id="file-input" accept="image/*,application/pdf" multiple>
+          <button class="btn block" id="scan-btn" style="margin-top:14px;" disabled>Bearbeta fakturor</button>
+          <div id="scan-msg" class="msg"></div>
+          <div class="progress-list" id="progress-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="toolbar">
+            <h2 style="margin:0;">Sparade fakturor</h2>
+          </div>
+          <div id="invoices-list"><div class="empty">Välj ett klientföretag ovan.</div></div>
+          <button class="btn ghost block" id="export-csv-btn" style="margin-top:16px;">Exportera CSV</button>
+        </div>
+      </section>
+
+      <section class="section" id="section-settings">
+        <h1 class="page-title">Inställningar</h1>
+        <div class="page-sub">Ert konto och automatisk mejl-in.</div>
+
+        <div class="card">
+          <h2>Byrå</h2>
+          <label>Namn</label>
+          <input type="text" id="settings-firm" disabled>
+          <label>E-post</label>
+          <input type="text" id="settings-email" disabled>
+        </div>
+
+        <div class="card">
+          <h2>Automatisk mejl-in</h2>
+          <div class="mail-status" id="mail-status"><span class="dot"></span><span id="mail-status-text">Inte konfigurerat</span></div>
+          <label>Mejladress (dedikerat Gmail-konto)</label>
+          <input type="text" id="mail-address" placeholder="dinbyra.fakturor@gmail.com">
+          <label>App-lösenord (Gmail)</label>
+          <input type="text" id="mail-password" placeholder="16-teckens app-lösenord">
+          <button class="btn" id="mail-save-btn" style="margin-top:16px;">Spara</button>
+          <div class="msg" id="mail-msg"></div>
+          <div class="settings-hint">
+            Fakturor som mejlas till adressen ovan hämtas och bearbetas automatiskt en gång om dagen.
+            Skapa ett <b>nytt, dedikerat Gmail-konto</b> bara för fakturor (inte ert vanliga) - gå sedan till
+            <b>Google Account → Security → 2-Step Verification</b>, slå på den, och skapa ett
+            <b>App password</b> för "Mail". Klistra in de 16 tecknen ovan. Varje klientföretag under
+            "Fakturor" har en egen kod (visas när klienten är vald) - be avsändaren skriva koden i ämnesraden.
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+let clientKey = '';
+let companies = [];
+let currentCompanyId = '';
+let invoices = [];
+let selectedFiles = [];
+let editingId = null;
+
+function fmt(n) { return (Math.round((n || 0) * 100) / 100).toFixed(2) + ' kr'; }
+
+async function init() {
+  clientKey = localStorage.getItem('fa_token') || '';
+  if (!clientKey) { location.href = '/login.html'; return; }
+
+  const res = await fetch(`/api/account?key=${encodeURIComponent(clientKey)}`);
+  if (res.status === 403) { logout(); return; }
+  const data = await res.json();
+  const account = data.account || {};
+  document.getElementById('sidebar-firm').textContent = account.firm_name || localStorage.getItem('fa_firm_name') || '';
+  document.getElementById('sidebar-email').textContent = account.email || localStorage.getItem('fa_email') || '';
+  document.getElementById('settings-firm').value = account.firm_name || '';
+  document.getElementById('settings-email').value = account.email || '';
+  document.getElementById('mail-address').value = account.mail_address || '';
+  setMailStatus(account.mail_configured);
+
+  await loadCompanies();
+  await loadDashboard();
+}
+
+function logout() {
+  localStorage.removeItem('fa_token');
+  localStorage.removeItem('fa_firm_name');
+  localStorage.removeItem('fa_email');
+  location.href = '/login.html';
+}
+document.getElementById('logout-btn').addEventListener('click', logout);
+
+/* ---------- Navigation ---------- */
+const SECTION_TITLES = { dashboard: 'Översikt', invoices: 'Fakturor', settings: 'Inställningar' };
+document.querySelectorAll('.nav-item').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const section = btn.dataset.section;
+    document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.section').forEach((s) => s.classList.toggle('active', s.id === `section-${section}`));
+    document.getElementById('topbar-title').textContent = SECTION_TITLES[section];
+    closeSidebar();
+    if (section === 'dashboard') loadDashboard();
+  });
+});
+
+function openSidebar() { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebar-backdrop').classList.add('show'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-backdrop').classList.remove('show'); }
+document.getElementById('hamburger').addEventListener('click', openSidebar);
+document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
+
+/* ---------- Dashboard ---------- */
+async function loadDashboard() {
+  try {
+    const [invRes, compRes] = await Promise.all([
+      fetch(`/api/invoices?key=${encodeURIComponent(clientKey)}`),
+      fetch(`/api/companies?key=${encodeURIComponent(clientKey)}`),
+    ]);
+    const invData = await invRes.json();
+    const compData = await compRes.json();
+    const allInvoices = invData.invoices || [];
+    const allCompanies = compData.companies || [];
+    const companyName = (id) => (allCompanies.find((c) => c.id === id) || {}).name || '–';
+
+    document.getElementById('stat-companies').textContent = allCompanies.length;
+    document.getElementById('stat-invoices').textContent = allInvoices.length;
+    document.getElementById('stat-review').textContent = allInvoices.filter((i) => i.status === 'needs_review').length;
+    document.getElementById('stat-total').textContent = fmt(allInvoices.reduce((sum, i) => sum + (i.totalbelopp || 0), 0));
+
+    const recent = allInvoices.slice().sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).slice(0, 8);
+    const list = document.getElementById('recent-list');
+    if (!recent.length) {
+      list.innerHTML = '<div class="empty">Inga fakturor sparade än.</div>';
+      return;
+    }
+    list.innerHTML = `
+      <table>
+        <thead><tr><th>Klient</th><th>Leverantör</th><th>Förfaller</th><th class="num">Totalt</th><th>Status</th></tr></thead>
+        <tbody>${recent.map((inv) => `
+          <tr>
+            <td>${companyName(inv.company_id)}</td>
+            <td>${inv.leverantor}</td>
+            <td>${inv.forfallodatum}</td>
+            <td class="num">${fmt(inv.totalbelopp)}</td>
+            <td>${inv.status === 'needs_review' ? '<span class="badge review">⚠ Kontrollera</span>' : '<span class="badge ok">✓ OK</span>'}</td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  } catch (e) {
+    document.getElementById('recent-list').innerHTML = '<div class="empty">Kunde inte ladda.</div>';
+  }
+}
+
+/* ---------- Settings: mail-in ---------- */
+function setMailStatus(on) {
+  const el = document.getElementById('mail-status');
+  el.classList.toggle('on', !!on);
+  document.getElementById('mail-status-text').textContent = on ? 'Aktiverat' : 'Inte konfigurerat';
+}
+
+document.getElementById('mail-save-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('mail-save-btn');
+  const msg = document.getElementById('mail-msg');
+  btn.disabled = true;
+  msg.className = 'msg';
+  msg.textContent = '';
+  try {
+    const res = await fetch('/api/account', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        key: clientKey,
+        mail_address: document.getElementById('mail-address').value.trim(),
+        mail_app_password: document.getElementById('mail-password').value.trim(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'unknown');
+    setMailStatus(data.account.mail_configured);
+    document.getElementById('mail-password').value = '';
+    msg.className = 'msg success';
+    msg.textContent = 'Sparat.';
+  } catch (e) {
+    msg.className = 'msg error';
+    msg.textContent = 'Kunde inte spara. Försök igen.';
+  }
+  btn.disabled = false;
+});
+
+/* ---------- Companies ---------- */
+async function loadCompanies() {
+  try {
+    const res = await fetch(`/api/companies?key=${encodeURIComponent(clientKey)}`);
+    const data = await res.json();
+    companies = data.companies || [];
+  } catch (e) { companies = []; }
+  renderCompanySelect();
+}
+
+function renderCompanySelect() {
+  const sel = document.getElementById('company-select');
+  const prev = currentCompanyId;
+  sel.innerHTML = '<option value="">Välj klientföretag…</option>' +
+    companies.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
+  if (prev && companies.some((c) => c.id === prev)) sel.value = prev;
+}
+
+function renderMailHint() {
+  const hint = document.getElementById('company-mail-hint');
+  const company = companies.find((c) => c.id === currentCompanyId);
+  if (company && company.code) {
+    hint.innerHTML = `📧 Fakturor kan även mejlas in automatiskt: be avsändaren skriva <b>${company.code}</b> i ämnesraden (se Inställningar för mejladress).`;
+  } else {
+    hint.innerHTML = '';
+  }
+}
+
+document.getElementById('company-select').addEventListener('change', async (e) => {
+  currentCompanyId = e.target.value;
+  updateScanBtnState();
+  renderMailHint();
+  if (currentCompanyId) {
+    await loadInvoices();
+  } else {
+    document.getElementById('invoices-list').innerHTML = '<div class="empty">Välj ett klientföretag ovan.</div>';
+  }
+});
+
+document.getElementById('new-company-btn').addEventListener('click', async () => {
+  const name = prompt('Namn på nytt klientföretag:');
+  if (!name || !name.trim()) return;
+  const res = await fetch('/api/companies', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: clientKey, name: name.trim() }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    await loadCompanies();
+    currentCompanyId = data.company.id;
+    document.getElementById('company-select').value = currentCompanyId;
+    updateScanBtnState();
+    renderMailHint();
+    await loadInvoices();
+  }
+});
+
+function updateScanBtnState() {
+  document.getElementById('scan-btn').disabled = !(currentCompanyId && selectedFiles.length);
+}
+
+document.getElementById('file-drop').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', (e) => {
+  selectedFiles = Array.from(e.target.files || []).slice(0, 20);
+  const drop = document.getElementById('file-drop');
+  const label = document.getElementById('file-drop-label');
+  if (selectedFiles.length) {
+    drop.classList.add('has-files');
+    label.textContent = `✓ ${selectedFiles.length} fil${selectedFiles.length > 1 ? 'er' : ''} vald${selectedFiles.length > 1 ? 'a' : ''}`;
+  } else {
+    drop.classList.remove('has-files');
+    label.textContent = 'Klicka för att välja bilder/PDF:er (upp till 20 st samtidigt)';
+  }
+  updateScanBtnState();
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+class ApiError extends Error {
+  constructor(code, detail) {
+    super(code);
+    this.detail = detail;
+  }
+}
+
+const ERROR_MESSAGES = {
+  forbidden: 'Sessionen har gått ut - logga in igen',
+  ai_not_configured: 'AI ej konfigurerad (saknar ANTHROPIC_API_KEY)',
+  store_not_configured: 'Databasen är inte kopplad',
+  missing_fields: 'Filen kunde inte läsas',
+  file_too_large: 'Filen är för stor (max ca 8 MB)',
+  file_save_failed: 'Kunde inte spara filen',
+  unsupported_file_type: 'Filtypen stöds inte (endast PDF, JPG, PNG, WEBP, GIF)',
+  ai_request_failed: 'AI-anropet misslyckades',
+  ai_bad_response: 'Oväntat svar från AI',
+  ai_no_json: 'AI:n svarade utan läsbar data',
+  ai_invalid_json: 'AI:n svarade med trasig data',
+  extract_failed: 'Kunde inte läsa fakturan',
+  store_error: 'Databasen svarade inte som väntat',
+  server_error: 'Ett oväntat fel inträffade',
+};
+
+function describeError(err) {
+  const code = err && err.message;
+  const base = ERROR_MESSAGES[code] || code || 'Okänt fel';
+  return err && err.detail ? `${base} (${err.detail})` : base;
+}
+
+function setProgressRow(name, statusClass, statusText, title) {
+  const list = document.getElementById('progress-list');
+  let row = list.querySelector(`[data-file="${CSS.escape(name)}"]`);
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'progress-row';
+    row.dataset.file = name;
+    row.innerHTML = `<span>${name}</span><span class="status"></span>`;
+    list.appendChild(row);
+  }
+  const statusEl = row.querySelector('.status');
+  statusEl.className = `status ${statusClass}`;
+  statusEl.innerHTML = statusText;
+  statusEl.title = title || '';
+}
+
+document.getElementById('scan-btn').addEventListener('click', async () => {
+  if (!selectedFiles.length || !currentCompanyId) return;
+  const btn = document.getElementById('scan-btn');
+  const msg = document.getElementById('scan-msg');
+  const list = document.getElementById('progress-list');
+  list.innerHTML = '';
+  msg.textContent = '';
+  btn.disabled = true;
+
+  let okCount = 0, reviewCount = 0, errorCount = 0;
+
+  for (const file of selectedFiles) {
+    setProgressRow(file.name, 'waiting', 'Väntar…');
+  }
+
+  for (const file of selectedFiles) {
+    setProgressRow(file.name, 'working', '<span class="spinner"></span> Läser…');
+    try {
+      const data = await fileToBase64(file);
+
+      const fileRes = await fetch('/api/files', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: clientKey, media_type: file.type, filename: file.name, data }),
+      });
+      const fileResult = await fileRes.json();
+      if (!fileRes.ok) throw new ApiError(fileResult.error || 'file_save_failed', fileResult.detail);
+      const fileId = fileResult.file_id;
+
+      const extractRes = await fetch('/api/extract', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: clientKey, media_type: file.type, filename: file.name, data }),
+      });
+      const extractResult = await extractRes.json();
+      if (!extractRes.ok) throw new ApiError(extractResult.error || 'extract_failed', extractResult.detail);
+
+      const items = extractResult.invoices || [];
+      let anyReview = false;
+      for (const fields of items) {
+        const saveRes = await fetch('/api/invoices', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: clientKey, company_id: currentCompanyId, fields, file_id: fileId }),
+        });
+        const saveResult = await saveRes.json();
+        if (saveRes.ok && saveResult.invoice.status === 'needs_review') anyReview = true;
+      }
+
+      if (anyReview) {
+        setProgressRow(file.name, 'review', `⚠ ${items.length > 1 ? items.length + ' fakturor, ' : ''}behöver kontroll`);
+        reviewCount++;
+      } else {
+        setProgressRow(file.name, 'ok', `✓ Sparad${items.length > 1 ? ` (${items.length} fakturor)` : ''}`);
+        okCount++;
+      }
+    } catch (e) {
+      const reason = describeError(e);
+      const short = reason.length > 50 ? reason.slice(0, 50) + '…' : reason;
+      setProgressRow(file.name, 'error', `✗ ${short}`, reason);
+      errorCount++;
+    }
+  }
+
+  msg.innerHTML = `<span class="msg success">Klart: ${okCount} sparade, ${reviewCount} behöver kontroll${errorCount ? `, ${errorCount} fel` : ''}.</span>`;
+  selectedFiles = [];
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-drop').classList.remove('has-files');
+  document.getElementById('file-drop-label').textContent = 'Klicka för att välja bilder/PDF:er (upp till 20 st samtidigt)';
+  btn.disabled = true;
+  await loadInvoices();
+  await loadDashboard();
+});
+
+async function loadInvoices() {
+  const list = document.getElementById('invoices-list');
+  list.innerHTML = '<div class="empty">Laddar…</div>';
+  try {
+    const res = await fetch(`/api/invoices?key=${encodeURIComponent(clientKey)}&company_id=${encodeURIComponent(currentCompanyId)}`);
+    const data = await res.json();
+    invoices = data.invoices || [];
+  } catch (e) {
+    invoices = [];
+  }
+  renderInvoices();
+}
+
+function renderInvoices() {
+  const list = document.getElementById('invoices-list');
+  if (!invoices.length) {
+    list.innerHTML = '<div class="empty">Inga fakturor sparade än för detta klientföretag.</div>';
+    return;
+  }
+  list.innerHTML = `
+    <table>
+      <thead><tr><th>Leverantör</th><th>Fakturanr</th><th>Förfaller</th><th class="num">Totalt</th><th>Status</th><th></th></tr></thead>
+      <tbody id="inv-tbody"></tbody>
+    </table>`;
+  const tbody = document.getElementById('inv-tbody');
+  invoices.forEach((inv) => {
+    if (editingId === inv.id) {
+      tbody.appendChild(renderEditRow(inv));
+    } else {
+      tbody.appendChild(renderViewRow(inv));
+    }
+  });
+}
+
+function renderViewRow(inv) {
+  const tr = document.createElement('tr');
+  const badge = inv.status === 'needs_review'
+    ? `<span class="badge review" title="${(inv.review_reasons || []).join(' · ')}">⚠ Kontrollera</span>`
+    : `<span class="badge ok">✓ OK</span>`;
+  tr.innerHTML = `
+    <td>${inv.leverantor}</td>
+    <td>${inv.fakturanummer}</td>
+    <td>${inv.forfallodatum}</td>
+    <td class="num">${fmt(inv.totalbelopp)}</td>
+    <td>${badge}</td>
+    <td class="row-actions">
+      <button class="btn ghost small" data-edit="${inv.id}">Redigera</button>
+      <button class="btn danger small" data-del="${inv.id}">Ta bort</button>
+    </td>`;
+  tr.querySelector('[data-edit]').addEventListener('click', () => { editingId = inv.id; renderInvoices(); });
+  tr.querySelector('[data-del]').addEventListener('click', async () => {
+    if (!confirm('Ta bort denna faktura?')) return;
+    await fetch('/api/invoices', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: clientKey, action: 'delete', id: inv.id }),
+    });
+    await loadInvoices();
+    await loadDashboard();
+  });
+  return tr;
+}
+
+function renderEditRow(inv) {
+  const tr = document.createElement('tr');
+  tr.className = 'edit-row';
+  tr.innerHTML = `
+    <td colspan="6">
+      <div class="edit-grid">
+        <div><label>Leverantör</label><input type="text" id="e-leverantor" value="${inv.leverantor}"></div>
+        <div><label>Fakturanr</label><input type="text" id="e-fakturanummer" value="${inv.fakturanummer}"></div>
+        <div><label>OCR</label><input type="text" id="e-ocr" value="${inv.ocr}"></div>
+        <div><label>Fakturadatum</label><input type="date" id="e-fakturadatum" value="${inv.fakturadatum}"></div>
+        <div><label>Förfallodatum</label><input type="date" id="e-forfallodatum" value="${inv.forfallodatum}"></div>
+        <div><label>Belopp exkl moms</label><input type="number" step="0.01" id="e-belopp" value="${inv.belopp_exkl_moms}"></div>
+        <div><label>Moms</label><input type="number" step="0.01" id="e-moms" value="${inv.moms}"></div>
+        <div><label>Totalbelopp</label><input type="number" step="0.01" id="e-total" value="${inv.totalbelopp}"></div>
+      </div>
+      <div class="row-actions" style="margin-top:12px;">
+        <button class="btn small" id="e-save">Spara ändringar</button>
+        <button class="btn ghost small" id="e-cancel">Avbryt</button>
+      </div>
+    </td>`;
+  tr.querySelector('#e-cancel').addEventListener('click', () => { editingId = null; renderInvoices(); });
+  tr.querySelector('#e-save').addEventListener('click', async () => {
+    const fields = {
+      leverantor: tr.querySelector('#e-leverantor').value,
+      fakturanummer: tr.querySelector('#e-fakturanummer').value,
+      ocr: tr.querySelector('#e-ocr').value,
+      fakturadatum: tr.querySelector('#e-fakturadatum').value,
+      forfallodatum: tr.querySelector('#e-forfallodatum').value,
+      belopp_exkl_moms: tr.querySelector('#e-belopp').value,
+      moms: tr.querySelector('#e-moms').value,
+      totalbelopp: tr.querySelector('#e-total').value,
+    };
+    await fetch('/api/invoices', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: clientKey, action: 'update', id: inv.id, fields }),
+    });
+    editingId = null;
+    await loadInvoices();
+    await loadDashboard();
+  });
+  return tr;
+}
+
+function csvEscape(v) {
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+document.getElementById('export-csv-btn').addEventListener('click', () => {
+  if (!invoices.length) return;
+  const headers = ['Leverantör', 'Fakturanummer', 'OCR', 'Fakturadatum', 'Förfallodatum', 'Belopp exkl moms', 'Moms', 'Totalbelopp', 'Status'];
+  const rows = invoices.map((inv) => [
+    inv.leverantor, inv.fakturanummer, inv.ocr, inv.fakturadatum, inv.forfallodatum,
+    inv.belopp_exkl_moms, inv.moms, inv.totalbelopp, inv.status === 'needs_review' ? 'Behöver kontroll' : 'OK',
+  ]);
+  const csv = '﻿' + [headers, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fakturor.csv';
+  a.click();
+});
+
+init();
+</script>
+</body>
+</html>

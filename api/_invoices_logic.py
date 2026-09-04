@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from _store import hset, hget, hgetall, hdel, StoreNotConfigured
-from _auth import check_key
+from _auth import verify_session
 
 AMOUNT_TOLERANCE = 0.05  # kr - float rounding slack when checking exkl_moms + moms == totalbelopp
 
@@ -32,7 +32,7 @@ def _parse_date(s):
         return None
 
 
-def _validate(fields, company_id):
+def _validate(uid, fields, company_id):
     reasons = []
 
     required = ['leverantor', 'fakturanummer', 'fakturadatum', 'forfallodatum']
@@ -55,7 +55,7 @@ def _validate(fields, company_id):
         reasons.append('Orimligt förfallodatum')
 
     try:
-        existing = [json.loads(v) for v in hgetall('invoices').values()]
+        existing = [json.loads(v) for v in hgetall(f'invoices:{uid}').values()]
     except StoreNotConfigured:
         existing = []
     dup = any(
@@ -71,26 +71,22 @@ def _validate(fields, company_id):
     return reasons
 
 
-def list_invoices(key, company_id=None):
-    if not check_key(key):
-        return 403, {'error': 'forbidden'}
+def _list_invoices_for(uid, company_id=None):
     try:
-        invoices = [json.loads(v) for v in hgetall('invoices').values()]
+        invoices = [json.loads(v) for v in hgetall(f'invoices:{uid}').values()]
     except StoreNotConfigured:
-        return 200, {'invoices': [], 'warning': 'store_not_configured'}
+        return {'invoices': [], 'warning': 'store_not_configured'}
     if company_id:
         invoices = [i for i in invoices if i.get('company_id') == company_id]
     invoices.sort(key=lambda i: i.get('created_at', 0), reverse=True)
-    return 200, {'invoices': invoices}
+    return {'invoices': invoices}
 
 
-def add_invoice(key, company_id, fields, file_id):
-    if not check_key(key):
-        return 403, {'error': 'forbidden'}
+def _add_invoice_for(uid, company_id, fields, file_id):
     if not company_id:
         return 400, {'error': 'company_required'}
 
-    reasons = _validate(fields, company_id)
+    reasons = _validate(uid, fields, company_id)
     invoice = {
         'id': str(uuid.uuid4()),
         'company_id': company_id,
@@ -108,17 +104,32 @@ def add_invoice(key, company_id, fields, file_id):
         'created_at': int(time.time()),
     }
     try:
-        hset('invoices', invoice['id'], json.dumps(invoice))
+        hset(f'invoices:{uid}', invoice['id'], json.dumps(invoice))
     except StoreNotConfigured:
         return 503, {'error': 'store_not_configured'}
     return 200, {'ok': True, 'invoice': invoice}
 
 
+def list_invoices(key, company_id=None):
+    uid = verify_session(key)
+    if not uid:
+        return 403, {'error': 'forbidden'}
+    return 200, _list_invoices_for(uid, company_id)
+
+
+def add_invoice(key, company_id, fields, file_id):
+    uid = verify_session(key)
+    if not uid:
+        return 403, {'error': 'forbidden'}
+    return _add_invoice_for(uid, company_id, fields, file_id)
+
+
 def update_invoice(key, invoice_id, fields):
-    if not check_key(key):
+    uid = verify_session(key)
+    if not uid:
         return 403, {'error': 'forbidden'}
     try:
-        raw = hget('invoices', invoice_id)
+        raw = hget(f'invoices:{uid}', invoice_id)
     except StoreNotConfigured:
         return 503, {'error': 'store_not_configured'}
     if not raw:
@@ -132,22 +143,23 @@ def update_invoice(key, invoice_id, fields):
         if f in fields:
             invoice[f] = _to_float(fields.get(f))
 
-    reasons = _validate(invoice, invoice['company_id'])
+    reasons = _validate(uid, invoice, invoice['company_id'])
     # Don't re-flag as a duplicate of itself - _validate scans all saved
     # invoices, and this one is already among them.
     reasons = [r for r in reasons if not r.startswith('Möjlig dubblett')]
     invoice['status'] = 'needs_review' if reasons else 'ok'
     invoice['review_reasons'] = reasons
 
-    hset('invoices', invoice_id, json.dumps(invoice))
+    hset(f'invoices:{uid}', invoice_id, json.dumps(invoice))
     return 200, {'ok': True, 'invoice': invoice}
 
 
 def delete_invoice(key, invoice_id):
-    if not check_key(key):
+    uid = verify_session(key)
+    if not uid:
         return 403, {'error': 'forbidden'}
     try:
-        hdel('invoices', invoice_id)
+        hdel(f'invoices:{uid}', invoice_id)
     except StoreNotConfigured:
         return 503, {'error': 'store_not_configured'}
     return 200, {'ok': True}

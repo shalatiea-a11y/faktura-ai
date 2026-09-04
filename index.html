@@ -2,478 +2,261 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<title>Fakturaskanning</title>
+<title>Fakturaskanning – AI-driven fakturahantering för redovisningsbyråer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex, nofollow">
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="description" content="Ladda upp eller mejla in leverantörsfakturor - AI läser av och sparar dem automatiskt, organiserat per klient. Byggt för redovisningsbyråer.">
 <style>
 :root {
-  --ink: #0A0C10; --surface: #13161D; --surface-2: #1B2029; --line: #2B3140;
-  --paper: #F2EFE8; --paper-dim: #A3A8B4; --paper-faint: #6B707C;
-  --gold: #D9A94E; --gold-2: #9C7627; --gold-glow: rgba(217,169,78,0.30);
-  --success: #3FA66B; --success-bg: rgba(63,166,107,0.15);
-  --warn: #E0A857; --warn-bg: rgba(224,168,87,0.15);
-  --error: #F0A0AC;
-  --font-display: 'Oswald', sans-serif; --font-body: 'Manrope', sans-serif;
+  --bg: #f6f8fc; --surface: #ffffff; --surface-2: #f1f5f9; --border: #e2e8f0;
+  --ink: #0f172a; --ink-dim: #475569; --ink-faint: #94a3b8;
+  --primary: #2563eb; --primary-dark: #1d4ed8; --primary-light: #eff6ff;
+  --navy: #0f1a30;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(15,23,42,0.05), 0 8px 24px rgba(15,23,42,0.06);
+  --maxw: 1120px;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--ink); color: var(--paper); font-family: var(--font-body); min-height: 100vh; }
-.wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px 80px; }
-h1 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; font-size: 22px; margin: 0 0 4px; }
-.sub { color: var(--paper-faint); font-size: 13px; margin-bottom: 28px; }
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin-bottom: 22px; }
-.card h2 { font-family: var(--font-display); font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); margin: 0 0 16px; display: flex; align-items: center; justify-content: space-between; }
-label { display: block; font-size: 11.5px; font-weight: 700; color: var(--paper-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 6px; }
-label:first-child { margin-top: 0; }
-input[type=text], input[type=date], input[type=number], select {
-  width: 100%; padding: 11px; border-radius: 8px; border: 1px solid var(--line);
-  background: var(--surface-2); color: var(--paper); font-family: inherit; font-size: 14.5px;
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); line-height: 1.5; }
+a { color: inherit; }
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+/* ---------- Nav ---------- */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; letter-spacing: -0.01em; text-decoration: none; }
+.logo-mark {
+  width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), #60a5fa);
+  display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 14px; flex: none;
 }
-input:focus, select:focus { outline: 2px solid var(--gold-2); outline-offset: -1px; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.nav-links { display: flex; align-items: center; gap: 10px; }
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: linear-gradient(135deg, var(--gold), var(--gold-2)); color: var(--ink);
-  border: none; border-radius: 8px; padding: 11px 18px; font-weight: 800; font-size: 13.5px;
-  cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
+  border-radius: 8px; padding: 10px 18px; font-weight: 700; font-size: 14px; cursor: pointer;
+  font-family: inherit; border: none; transition: background 0.15s, transform 0.1s;
 }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--paper); }
-.btn.block { width: 100%; }
-.btn.small { padding: 7px 12px; font-size: 12px; }
-.btn.danger { background: transparent; border: 1px solid rgba(240,160,172,0.4); color: var(--error); }
-.company-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 22px; flex-wrap: wrap; }
-.company-bar select { flex: 1; min-width: 180px; }
-.file-drop {
-  border: 2px dashed var(--line); border-radius: 10px; padding: 26px; text-align: center;
-  color: var(--paper-faint); font-size: 14px; cursor: pointer;
+.btn.primary { background: var(--primary); color: #fff; }
+.btn.primary:hover { background: var(--primary-dark); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--border); }
+.btn.ghost:hover { background: var(--surface-2); }
+.btn.large { padding: 14px 26px; font-size: 15.5px; }
+
+/* ---------- Hero ---------- */
+.hero { padding: 64px 0 40px; text-align: center; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--primary-light); color: var(--primary-dark);
+  font-size: 12.5px; font-weight: 700; padding: 6px 14px; border-radius: 999px; margin-bottom: 22px;
 }
-.file-drop.has-files { border-color: var(--gold); color: var(--paper); }
-#file-input { display: none; }
-.msg { font-size: 13px; margin-top: 12px; }
-.msg.error { color: var(--error); }
-.msg.success { color: var(--success); }
-.progress-list { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
-.progress-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 8px 10px; background: var(--surface-2); border-radius: 6px; }
-.progress-row .status { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
-.progress-row .status.waiting { color: var(--paper-faint); }
-.progress-row .status.working { color: var(--gold); }
-.progress-row .status.ok { color: var(--success); }
-.progress-row .status.review { color: var(--warn); }
-.progress-row .status.error { color: var(--error); }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { color: var(--paper-faint); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; }
-td.num { text-align: right; font-family: var(--font-display); white-space: nowrap; }
-.empty { color: var(--paper-faint); font-size: 14px; padding: 20px 0; text-align: center; }
-.key-box input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); color: var(--paper); font-size: 15px; margin-bottom: 12px; }
-.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(0,0,0,0.3); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.7s linear infinite; flex: 0 0 auto; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; cursor: default; }
-.badge.ok { background: var(--success-bg); color: var(--success); }
-.badge.review { background: var(--warn-bg); color: var(--warn); }
-.row-actions { display: flex; gap: 6px; }
-.edit-row td { background: var(--surface-2); }
-.edit-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.edit-grid input { font-size: 13px; padding: 7px; }
-.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 10px; }
+h1 { font-size: 44px; line-height: 1.12; margin: 0 0 18px; letter-spacing: -0.02em; font-weight: 800; }
+h1 .accent { color: var(--primary); }
+.hero-sub { font-size: 17px; color: var(--ink-dim); max-width: 620px; margin: 0 auto 32px; }
+.hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+.hero-note { font-size: 13px; color: var(--ink-faint); }
+
+/* ---------- Preview card ---------- */
+.preview {
+  max-width: 860px; margin: 44px auto 0; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px; box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 24px 60px rgba(15,23,42,0.12); overflow: hidden;
+}
+.preview-bar { display: flex; gap: 6px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.preview-bar span { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+.preview-body { padding: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; }
+.preview-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--surface-2); border-radius: 10px; font-size: 13.5px; }
+.preview-row b { font-weight: 700; }
+.preview-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.preview-badge.ok { background: #ecfdf3; color: #16a34a; }
+.preview-badge.warn { background: #fffbeb; color: #d97706; }
+.preview-stat { padding: 16px; border-radius: 10px; background: var(--primary-light); }
+.preview-stat .n { font-size: 24px; font-weight: 800; color: var(--primary-dark); }
+.preview-stat .l { font-size: 12px; color: var(--ink-dim); font-weight: 600; }
+
+/* ---------- Sections ---------- */
+section { padding: 76px 0; }
+.section-head { text-align: center; max-width: 620px; margin: 0 auto 44px; }
+.section-head h2 { font-size: 30px; margin: 0 0 12px; letter-spacing: -0.01em; }
+.section-head p { color: var(--ink-dim); font-size: 15.5px; margin: 0; }
+
+.features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+.feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; }
+.feature-ic { width: 42px; height: 42px; border-radius: 10px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+.feature-card h3 { font-size: 15.5px; margin: 0 0 8px; }
+.feature-card p { font-size: 13.5px; color: var(--ink-dim); margin: 0; line-height: 1.55; }
+
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.step { text-align: center; }
+.step-num {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--navy); color: #fff; font-weight: 800; font-size: 16px;
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+}
+.step h3 { font-size: 16px; margin: 0 0 8px; }
+.step p { font-size: 13.5px; color: var(--ink-dim); margin: 0; max-width: 280px; margin: 0 auto; }
+
+.cta-band {
+  background: linear-gradient(135deg, var(--navy), #172554); border-radius: 20px; padding: 56px 40px; text-align: center; color: #fff;
+}
+.cta-band h2 { font-size: 28px; margin: 0 0 12px; letter-spacing: -0.01em; }
+.cta-band p { color: #cbd5e1; margin: 0 0 26px; font-size: 15px; }
+.cta-band .btn.primary { background: #fff; color: var(--navy); }
+.cta-band .btn.primary:hover { background: #e2e8f0; }
+.cta-band .btn.ghost { border-color: rgba(255,255,255,0.25); color: #fff; }
+.cta-band .btn.ghost:hover { background: rgba(255,255,255,0.08); }
+
+footer { border-top: 1px solid var(--border); padding: 28px 0; }
+.foot-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px; color: var(--ink-faint); }
+
+@media (max-width: 900px) {
+  h1 { font-size: 32px; }
+  .features { grid-template-columns: 1fr 1fr; }
+  .steps { grid-template-columns: 1fr; }
+  .preview-body { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .nav-links .btn.ghost { display: none; }
+  .features { grid-template-columns: 1fr; }
+  h1 { font-size: 27px; }
+  .hero { padding: 40px 0 20px; }
+  .cta-band { padding: 40px 22px; }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>Fakturaskanning</h1>
-  <div class="sub">Ladda upp leverantörsfakturor, låt AI läsa och spara dem automatiskt.</div>
 
-  <div class="card key-box" id="key-box" style="display:none;">
-    <label>Ange din nyckel</label>
-    <input type="text" id="key-input" placeholder="nyckel...">
-    <button class="btn block" id="save-key">Logga in</button>
+<div class="wrap">
+  <nav class="nav">
+    <a class="logo" href="/"><span class="logo-mark">F</span> Fakturaskanning</a>
+    <div class="nav-links">
+      <a class="btn ghost" href="/login.html">Logga in</a>
+      <a class="btn primary" href="/signup.html">Skapa konto</a>
+    </div>
+  </nav>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow">✨ Byggt med Claude AI</div>
+    <h1>Fakturor in, siffror ut.<br><span class="accent">Automatiskt.</span></h1>
+    <p class="hero-sub">
+      Ladda upp eller mejla in leverantörsfakturor - AI:n läser av leverantör, belopp, moms och datum,
+      och sparar dem organiserat per klientföretag. Ni kollar bara det som flaggas.
+    </p>
+    <div class="hero-cta">
+      <a class="btn primary large" href="/signup.html">Skapa konto gratis</a>
+      <a class="btn ghost large" href="/login.html">Logga in</a>
+    </div>
+    <div class="hero-note">Inget kreditkort krävs för att komma igång.</div>
   </div>
 
-  <div id="app" style="display:none;">
-    <div class="company-bar">
-      <select id="company-select"><option value="">Välj klientföretag…</option></select>
-      <button class="btn ghost small" id="new-company-btn">+ Ny klient</button>
-    </div>
-    <div class="msg" id="company-mail-hint" style="margin-top:-14px;margin-bottom:22px;"></div>
-
-    <div class="card">
-      <h2>Ladda upp fakturor</h2>
-      <div class="file-drop" id="file-drop">
-        <div id="file-drop-label">Klicka för att välja bilder/PDF:er (upp till 20 st samtidigt)</div>
+  <div class="preview">
+    <div class="preview-bar"><span></span><span></span><span></span></div>
+    <div class="preview-body">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="preview-row"><span>Elbolaget AB · #4471</span><span class="preview-badge ok">✓ OK</span></div>
+        <div class="preview-row"><span>Kontorsmaterial HB · #2290</span><span class="preview-badge ok">✓ OK</span></div>
+        <div class="preview-row"><span>Städservice Nord · #118</span><span class="preview-badge warn">⚠ Kontrollera</span></div>
+        <div class="preview-row"><span>IT-Support AB · #9903</span><span class="preview-badge ok">✓ OK</span></div>
       </div>
-      <input type="file" id="file-input" accept="image/*,application/pdf" multiple>
-      <button class="btn block" id="scan-btn" style="margin-top:14px;" disabled>Bearbeta fakturor</button>
-      <div id="scan-msg" class="msg"></div>
-      <div class="progress-list" id="progress-list"></div>
-    </div>
-
-    <div class="card">
-      <div class="toolbar">
-        <h2 style="margin:0;">Sparade fakturor</h2>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="preview-stat"><div class="n">128</div><div class="l">Fakturor denna månad</div></div>
+        <div class="preview-stat"><div class="n">3</div><div class="l">Behöver kontroll</div></div>
+        <div class="preview-stat"><div class="n">12</div><div class="l">Klientföretag</div></div>
       </div>
-      <div id="invoices-list"><div class="empty">Välj ett klientföretag ovan.</div></div>
-      <button class="btn ghost block" id="export-csv-btn" style="margin-top:16px;">Exportera CSV</button>
     </div>
   </div>
 </div>
 
-<script>
-let clientKey = '';
-let companies = [];
-let currentCompanyId = '';
-let invoices = [];
-let selectedFiles = [];
-let editingId = null;
-
-function getKey() {
-  const url = new URL(window.location.href);
-  const fromUrl = url.searchParams.get('key');
-  if (fromUrl) { localStorage.setItem('faktura_client_key', fromUrl); return fromUrl; }
-  return localStorage.getItem('faktura_client_key') || '';
-}
-
-function fmt(n) { return (Math.round((n || 0) * 100) / 100).toFixed(2) + ' kr'; }
-
-async function init() {
-  clientKey = getKey();
-  if (!clientKey) {
-    document.getElementById('key-box').style.display = 'block';
-    return;
-  }
-  document.getElementById('app').style.display = 'block';
-  await loadCompanies();
-}
-
-document.getElementById('save-key').addEventListener('click', () => {
-  const v = document.getElementById('key-input').value.trim();
-  if (v) { localStorage.setItem('faktura_client_key', v); location.href = location.pathname; }
-});
-
-async function loadCompanies() {
-  try {
-    const res = await fetch(`/api/companies?key=${encodeURIComponent(clientKey)}`);
-    const data = await res.json();
-    companies = data.companies || [];
-  } catch (e) { companies = []; }
-  renderCompanySelect();
-}
-
-function renderCompanySelect() {
-  const sel = document.getElementById('company-select');
-  const prev = currentCompanyId;
-  sel.innerHTML = '<option value="">Välj klientföretag…</option>' +
-    companies.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
-  if (prev && companies.some((c) => c.id === prev)) sel.value = prev;
-}
-
-function renderMailHint() {
-  const hint = document.getElementById('company-mail-hint');
-  const company = companies.find((c) => c.id === currentCompanyId);
-  if (company && company.code) {
-    hint.innerHTML = `📧 Fakturor kan även mejlas in automatiskt: be avsändaren skriva <b>${company.code}</b> i ämnesraden och skicka till er fakturamejladress (kollas en gång/dygn).`;
-  } else {
-    hint.innerHTML = '';
-  }
-}
-
-document.getElementById('company-select').addEventListener('change', async (e) => {
-  currentCompanyId = e.target.value;
-  updateScanBtnState();
-  renderMailHint();
-  if (currentCompanyId) {
-    await loadInvoices();
-  } else {
-    document.getElementById('invoices-list').innerHTML = '<div class="empty">Välj ett klientföretag ovan.</div>';
-  }
-});
-
-document.getElementById('new-company-btn').addEventListener('click', async () => {
-  const name = prompt('Namn på nytt klientföretag:');
-  if (!name || !name.trim()) return;
-  const res = await fetch('/api/companies', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ key: clientKey, name: name.trim() }),
-  });
-  const data = await res.json();
-  if (data.ok) {
-    await loadCompanies();
-    currentCompanyId = data.company.id;
-    document.getElementById('company-select').value = currentCompanyId;
-    updateScanBtnState();
-    renderMailHint();
-    await loadInvoices();
-  }
-});
-
-function updateScanBtnState() {
-  document.getElementById('scan-btn').disabled = !(currentCompanyId && selectedFiles.length);
-}
-
-document.getElementById('file-drop').addEventListener('click', () => document.getElementById('file-input').click());
-document.getElementById('file-input').addEventListener('change', (e) => {
-  selectedFiles = Array.from(e.target.files || []).slice(0, 20);
-  const drop = document.getElementById('file-drop');
-  const label = document.getElementById('file-drop-label');
-  if (selectedFiles.length) {
-    drop.classList.add('has-files');
-    label.textContent = `✓ ${selectedFiles.length} fil${selectedFiles.length > 1 ? 'er' : ''} vald${selectedFiles.length > 1 ? 'a' : ''}`;
-  } else {
-    drop.classList.remove('has-files');
-    label.textContent = 'Klicka för att välja bilder/PDF:er (upp till 20 st samtidigt)';
-  }
-  updateScanBtnState();
-});
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-class ApiError extends Error {
-  constructor(code, detail) {
-    super(code);
-    this.detail = detail;
-  }
-}
-
-const ERROR_MESSAGES = {
-  forbidden: 'Fel nyckel',
-  ai_not_configured: 'AI ej konfigurerad (saknar ANTHROPIC_API_KEY)',
-  store_not_configured: 'Databasen är inte kopplad',
-  missing_fields: 'Filen kunde inte läsas',
-  file_too_large: 'Filen är för stor (max ca 8 MB)',
-  file_save_failed: 'Kunde inte spara filen',
-  unsupported_file_type: 'Filtypen stöds inte (endast PDF, JPG, PNG, WEBP, GIF)',
-  ai_request_failed: 'AI-anropet misslyckades',
-  ai_bad_response: 'Oväntat svar från AI',
-  ai_no_json: 'AI:n svarade utan läsbar data',
-  ai_invalid_json: 'AI:n svarade med trasig data',
-  extract_failed: 'Kunde inte läsa fakturan',
-  store_error: 'Databasen svarade inte som väntat',
-  server_error: 'Ett oväntat fel inträffade',
-};
-
-function describeError(err) {
-  const code = err && err.message;
-  const base = ERROR_MESSAGES[code] || code || 'Okänt fel';
-  return err && err.detail ? `${base} (${err.detail})` : base;
-}
-
-function setProgressRow(name, statusClass, statusText, title) {
-  const list = document.getElementById('progress-list');
-  let row = list.querySelector(`[data-file="${CSS.escape(name)}"]`);
-  if (!row) {
-    row = document.createElement('div');
-    row.className = 'progress-row';
-    row.dataset.file = name;
-    row.innerHTML = `<span>${name}</span><span class="status"></span>`;
-    list.appendChild(row);
-  }
-  const statusEl = row.querySelector('.status');
-  statusEl.className = `status ${statusClass}`;
-  statusEl.innerHTML = statusText;
-  statusEl.title = title || '';
-}
-
-document.getElementById('scan-btn').addEventListener('click', async () => {
-  if (!selectedFiles.length || !currentCompanyId) return;
-  const btn = document.getElementById('scan-btn');
-  const msg = document.getElementById('scan-msg');
-  const list = document.getElementById('progress-list');
-  list.innerHTML = '';
-  msg.textContent = '';
-  btn.disabled = true;
-
-  let okCount = 0, reviewCount = 0, errorCount = 0;
-
-  for (const file of selectedFiles) {
-    setProgressRow(file.name, 'waiting', 'Väntar…');
-  }
-
-  for (const file of selectedFiles) {
-    setProgressRow(file.name, 'working', '<span class="spinner"></span> Läser…');
-    try {
-      const data = await fileToBase64(file);
-
-      const fileRes = await fetch('/api/files', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: clientKey, media_type: file.type, filename: file.name, data }),
-      });
-      const fileResult = await fileRes.json();
-      if (!fileRes.ok) throw new ApiError(fileResult.error || 'file_save_failed', fileResult.detail);
-      const fileId = fileResult.file_id;
-
-      const extractRes = await fetch('/api/extract', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: clientKey, media_type: file.type, filename: file.name, data }),
-      });
-      const extractResult = await extractRes.json();
-      if (!extractRes.ok) throw new ApiError(extractResult.error || 'extract_failed', extractResult.detail);
-
-      const items = extractResult.invoices || [];
-      let anyReview = false;
-      for (const fields of items) {
-        const saveRes = await fetch('/api/invoices', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key: clientKey, company_id: currentCompanyId, fields, file_id: fileId }),
-        });
-        const saveResult = await saveRes.json();
-        if (saveRes.ok && saveResult.invoice.status === 'needs_review') anyReview = true;
-      }
-
-      if (anyReview) {
-        setProgressRow(file.name, 'review', `⚠ ${items.length > 1 ? items.length + ' fakturor, ' : ''}behöver kontroll`);
-        reviewCount++;
-      } else {
-        setProgressRow(file.name, 'ok', `✓ Sparad${items.length > 1 ? ` (${items.length} fakturor)` : ''}`);
-        okCount++;
-      }
-    } catch (e) {
-      const reason = describeError(e);
-      const short = reason.length > 50 ? reason.slice(0, 50) + '…' : reason;
-      setProgressRow(file.name, 'error', `✗ ${short}`, reason);
-      errorCount++;
-    }
-  }
-
-  msg.innerHTML = `<span class="msg success">Klart: ${okCount} sparade, ${reviewCount} behöver kontroll${errorCount ? `, ${errorCount} fel` : ''}.</span>`;
-  selectedFiles = [];
-  document.getElementById('file-input').value = '';
-  document.getElementById('file-drop').classList.remove('has-files');
-  document.getElementById('file-drop-label').textContent = 'Klicka för att välja bilder/PDF:er (upp till 20 st samtidigt)';
-  btn.disabled = true;
-  await loadInvoices();
-});
-
-async function loadInvoices() {
-  const list = document.getElementById('invoices-list');
-  list.innerHTML = '<div class="empty">Laddar…</div>';
-  try {
-    const res = await fetch(`/api/invoices?key=${encodeURIComponent(clientKey)}&company_id=${encodeURIComponent(currentCompanyId)}`);
-    const data = await res.json();
-    invoices = data.invoices || [];
-  } catch (e) {
-    invoices = [];
-  }
-  renderInvoices();
-}
-
-function renderInvoices() {
-  const list = document.getElementById('invoices-list');
-  if (!invoices.length) {
-    list.innerHTML = '<div class="empty">Inga fakturor sparade än för detta klientföretag.</div>';
-    return;
-  }
-  list.innerHTML = `
-    <table>
-      <thead><tr><th>Leverantör</th><th>Fakturanr</th><th>Förfaller</th><th class="num">Totalt</th><th>Status</th><th></th></tr></thead>
-      <tbody id="inv-tbody"></tbody>
-    </table>`;
-  const tbody = document.getElementById('inv-tbody');
-  invoices.forEach((inv) => {
-    if (editingId === inv.id) {
-      tbody.appendChild(renderEditRow(inv));
-    } else {
-      tbody.appendChild(renderViewRow(inv));
-    }
-  });
-}
-
-function renderViewRow(inv) {
-  const tr = document.createElement('tr');
-  const badge = inv.status === 'needs_review'
-    ? `<span class="badge review" title="${(inv.review_reasons || []).join(' · ')}">⚠ Kontrollera</span>`
-    : `<span class="badge ok">✓ OK</span>`;
-  tr.innerHTML = `
-    <td>${inv.leverantor}</td>
-    <td>${inv.fakturanummer}</td>
-    <td>${inv.forfallodatum}</td>
-    <td class="num">${fmt(inv.totalbelopp)}</td>
-    <td>${badge}</td>
-    <td class="row-actions">
-      <button class="btn ghost small" data-edit="${inv.id}">Redigera</button>
-      <button class="btn danger small" data-del="${inv.id}">Ta bort</button>
-    </td>`;
-  tr.querySelector('[data-edit]').addEventListener('click', () => { editingId = inv.id; renderInvoices(); });
-  tr.querySelector('[data-del]').addEventListener('click', async () => {
-    if (!confirm('Ta bort denna faktura?')) return;
-    await fetch('/api/invoices', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: clientKey, action: 'delete', id: inv.id }),
-    });
-    await loadInvoices();
-  });
-  return tr;
-}
-
-function renderEditRow(inv) {
-  const tr = document.createElement('tr');
-  tr.className = 'edit-row';
-  tr.innerHTML = `
-    <td colspan="6">
-      <div class="edit-grid">
-        <div><label>Leverantör</label><input type="text" id="e-leverantor" value="${inv.leverantor}"></div>
-        <div><label>Fakturanr</label><input type="text" id="e-fakturanummer" value="${inv.fakturanummer}"></div>
-        <div><label>OCR</label><input type="text" id="e-ocr" value="${inv.ocr}"></div>
-        <div><label>Fakturadatum</label><input type="date" id="e-fakturadatum" value="${inv.fakturadatum}"></div>
-        <div><label>Förfallodatum</label><input type="date" id="e-forfallodatum" value="${inv.forfallodatum}"></div>
-        <div><label>Belopp exkl moms</label><input type="number" step="0.01" id="e-belopp" value="${inv.belopp_exkl_moms}"></div>
-        <div><label>Moms</label><input type="number" step="0.01" id="e-moms" value="${inv.moms}"></div>
-        <div><label>Totalbelopp</label><input type="number" step="0.01" id="e-total" value="${inv.totalbelopp}"></div>
+<div class="wrap">
+  <section id="features">
+    <div class="section-head">
+      <h2>Allt en byrå behöver för fakturaflödet</h2>
+      <p>Från mottagen faktura till färdig export - utan manuell inmatning.</p>
+    </div>
+    <div class="features">
+      <div class="feature-card">
+        <div class="feature-ic">🤖</div>
+        <h3>AI-avläsning</h3>
+        <p>Leverantör, fakturanummer, OCR, datum, moms och belopp läses av automatiskt från foto eller PDF.</p>
       </div>
-      <div class="row-actions" style="margin-top:12px;">
-        <button class="btn small" id="e-save">Spara ändringar</button>
-        <button class="btn ghost small" id="e-cancel">Avbryt</button>
+      <div class="feature-card">
+        <div class="feature-ic">🏢</div>
+        <h3>Flera klienter</h3>
+        <p>Organisera fakturor per klientföretag - varje klient har sina egna, helt separata fakturor.</p>
       </div>
-    </td>`;
-  tr.querySelector('#e-cancel').addEventListener('click', () => { editingId = null; renderInvoices(); });
-  tr.querySelector('#e-save').addEventListener('click', async () => {
-    const fields = {
-      leverantor: tr.querySelector('#e-leverantor').value,
-      fakturanummer: tr.querySelector('#e-fakturanummer').value,
-      ocr: tr.querySelector('#e-ocr').value,
-      fakturadatum: tr.querySelector('#e-fakturadatum').value,
-      forfallodatum: tr.querySelector('#e-forfallodatum').value,
-      belopp_exkl_moms: tr.querySelector('#e-belopp').value,
-      moms: tr.querySelector('#e-moms').value,
-      totalbelopp: tr.querySelector('#e-total').value,
-    };
-    await fetch('/api/invoices', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: clientKey, action: 'update', id: inv.id, fields }),
-    });
-    editingId = null;
-    await loadInvoices();
-  });
-  return tr;
-}
+      <div class="feature-card">
+        <div class="feature-ic">📧</div>
+        <h3>Automatisk mejl-in</h3>
+        <p>Vidarebefordra fakturor till er egen mejladress så bearbetas de automatiskt - inget manuellt jobb.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">⚠️</div>
+        <h3>Smart flaggning</h3>
+        <p>Inget sparas tyst om något ser konstigt ut - felaktig summa, dubblett eller saknat fält flaggas tydligt.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">📦</div>
+        <h3>Batch-uppladdning</h3>
+        <p>Ladda upp upp till 20 filer samtidigt - en fil med flera fakturor (t.ex. kontoutdrag) delas upp automatiskt.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">📄</div>
+        <h3>Original sparas</h3>
+        <p>Originaldokumentet bevaras tillsammans med de avlästa siffrorna, enligt bokföringslagens krav.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">✏️</div>
+        <h3>Redigerbart</h3>
+        <p>Rätta en avläsning direkt i listan, när som helst - även efter att fakturan sparats.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-ic">📤</div>
+        <h3>CSV-export</h3>
+        <p>Exportera valfritt klientföretags fakturor till CSV, redo att importeras i ert bokföringssystem.</p>
+      </div>
+    </div>
+  </section>
 
-function csvEscape(v) {
-  const s = String(v ?? '');
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+  <section id="how">
+    <div class="section-head">
+      <h2>Så funkar det</h2>
+      <p>Tre steg från mottagen faktura till klar bokföringsunderlag.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Ladda upp eller mejla in</h3>
+        <p>Dra in bilder/PDF:er i appen, eller vidarebefordra till er dedikerade fakturamejladress.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>AI läser och sparar</h3>
+        <p>Claude läser av varje faktura och sparar den direkt - osäkra fall flaggas för manuell koll.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Exportera och bokför</h3>
+        <p>Ladda ner CSV per klient och importera i Fortnox eller ert vanliga bokföringssystem.</p>
+      </div>
+    </div>
+  </section>
 
-document.getElementById('export-csv-btn').addEventListener('click', () => {
-  if (!invoices.length) return;
-  const headers = ['Leverantör', 'Fakturanummer', 'OCR', 'Fakturadatum', 'Förfallodatum', 'Belopp exkl moms', 'Moms', 'Totalbelopp', 'Status'];
-  const rows = invoices.map((inv) => [
-    inv.leverantor, inv.fakturanummer, inv.ocr, inv.fakturadatum, inv.forfallodatum,
-    inv.belopp_exkl_moms, inv.moms, inv.totalbelopp, inv.status === 'needs_review' ? 'Behöver kontroll' : 'OK',
-  ]);
-  const csv = '﻿' + [headers, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'fakturor.csv';
-  a.click();
-});
+  <section id="cta">
+    <div class="cta-band">
+      <h2>Redo att slippa manuell fakturaregistrering?</h2>
+      <p>Skapa ett konto åt er byrå och testa på er första klient - tar under en minut.</p>
+      <div class="hero-cta">
+        <a class="btn primary large" href="/signup.html">Skapa konto gratis</a>
+        <a class="btn ghost large" href="/login.html">Logga in</a>
+      </div>
+    </div>
+  </section>
+</div>
 
-init();
-</script>
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <span>© 2026 Fakturaskanning</span>
+      <span>Byggt med Claude AI</span>
+    </div>
+  </div>
+</footer>
+
 </body>
 </html>
