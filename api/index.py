@@ -17,6 +17,7 @@ import _invoices_logic as invoices_logic  # noqa: E402
 import _companies_logic as companies_logic  # noqa: E402
 import _files_logic as files_logic  # noqa: E402
 import _mail_logic as mail_logic  # noqa: E402
+from _store import StoreNotConfigured, StoreRequestFailed  # noqa: E402
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..')
 
@@ -28,6 +29,22 @@ STATIC_PAGES = {
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        try:
+            self._route_get()
+        except (StoreNotConfigured, StoreRequestFailed) as e:
+            self._send(502, {'error': 'store_error', 'detail': str(e)[:300]})
+        except Exception as e:
+            self._send(500, {'error': 'server_error', 'detail': str(e)[:300]})
+
+    def do_POST(self):
+        try:
+            self._route_post()
+        except (StoreNotConfigured, StoreRequestFailed) as e:
+            self._send(502, {'error': 'store_error', 'detail': str(e)[:300]})
+        except Exception as e:
+            self._send(500, {'error': 'server_error', 'detail': str(e)[:300]})
+
+    def _route_get(self):
         path = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
         key = (qs.get('key') or [''])[0]
@@ -59,7 +76,7 @@ class handler(BaseHTTPRequestHandler):
 
         self._send(code, payload)
 
-    def do_POST(self):
+    def _route_post(self):
         path = urlparse(self.path).path
         try:
             length = int(self.headers.get('Content-Length', 0))
