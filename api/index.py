@@ -1,6 +1,9 @@
 """Single Vercel Python entrypoint for the whole API - see hallak-demo's
 README for why: Vercel's Python builder wants one canonical entrypoint file
-rather than auto-detecting many separate handler files.
+rather than auto-detecting many separate handler files, and (per the lesson
+learned there) appears to swallow ALL paths into this one function - so this
+also serves index.html directly rather than relying on Vercel's static
+file server.
 """
 import json
 import os
@@ -11,7 +14,8 @@ from urllib.parse import urlparse, parse_qs
 sys.path.append(os.path.dirname(__file__))
 import _extract_logic as extract_logic  # noqa: E402
 import _invoices_logic as invoices_logic  # noqa: E402
-
+import _companies_logic as companies_logic  # noqa: E402
+import _files_logic as files_logic  # noqa: E402
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..')
 
@@ -25,14 +29,20 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
+        key = (qs.get('key') or [''])[0]
 
         if path in STATIC_PAGES:
             self._send_html(STATIC_PAGES[path])
             return
 
-        if path.startswith('/api/invoices'):
-            key = (qs.get('key') or [''])[0]
-            code, payload = invoices_logic.list_invoices(key)
+        if path.startswith('/api/companies'):
+            code, payload = companies_logic.list_companies(key)
+        elif path.startswith('/api/invoices'):
+            company_id = (qs.get('company_id') or [None])[0]
+            code, payload = invoices_logic.list_invoices(key, company_id)
+        elif path.startswith('/api/files'):
+            file_id = (qs.get('id') or [''])[0]
+            code, payload = files_logic.get_file(key, file_id)
         else:
             code, payload = 404, {'error': 'not_found'}
 
@@ -53,15 +63,29 @@ class handler(BaseHTTPRequestHandler):
             media_type = body.get('media_type') or ''
             data = body.get('data') or ''
             try:
-                code, payload = extract_logic.extract_invoice(key, media_type, data)
+                code, payload = extract_logic.extract_invoices(key, media_type, data)
             except Exception as e:
                 code, payload = 500, {'error': str(e)}
+
+        elif path.startswith('/api/files'):
+            media_type = body.get('media_type') or ''
+            data = body.get('data') or ''
+            code, payload = files_logic.save_file(key, media_type, data)
+
+        elif path.startswith('/api/companies'):
+            code, payload = companies_logic.add_company(key, body.get('name'))
+
         elif path.startswith('/api/invoices'):
             action = body.get('action')
-            if action == 'delete':
+            if action == 'update':
+                code, payload = invoices_logic.update_invoice(key, body.get('id'), body.get('fields') or {})
+            elif action == 'delete':
                 code, payload = invoices_logic.delete_invoice(key, body.get('id'))
             else:
-                code, payload = invoices_logic.add_invoice(key, body.get('fields') or {})
+                code, payload = invoices_logic.add_invoice(
+                    key, body.get('company_id'), body.get('fields') or {}, body.get('file_id'),
+                )
+
         else:
             code, payload = 404, {'error': 'not_found'}
 

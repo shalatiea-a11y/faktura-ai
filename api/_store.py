@@ -1,5 +1,9 @@
 """Store client for Upstash Redis via REST API - same proven pattern as the
 Bahaa Sax / Invoicer / hallak-demo projects. Stdlib only, no pip deps.
+
+Hashes (not lists) are used everywhere here because invoices, companies and
+files all need O(1) lookup-by-id and in-place updates (editing a saved
+invoice, for example) - the same reasoning as Invoicer's data model.
 """
 import json
 import os
@@ -23,18 +27,24 @@ def _call(*parts):
     url, token = _base()
     path = '/'.join(urllib.parse.quote(str(p), safe='') for p in parts)
     req = urllib.request.Request(f'{url}/{path}', headers={'Authorization': f'Bearer {token}'})
-    with urllib.request.urlopen(req, timeout=8) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:
         return json.loads(resp.read().decode())
 
 
-def rpush(key, value):
-    return _call('rpush', key, value)
+def hset(key, field, value):
+    return _call('hset', key, field, value)
 
 
-def lrange(key, start=0, stop=-1):
-    result = _call('lrange', key, start, stop)
-    return result.get('result') or []
+def hget(key, field):
+    result = _call('hget', key, field)
+    return result.get('result')
 
 
-def lrem_by_value(key, value):
-    return _call('lrem', key, 0, value)
+def hgetall(key):
+    result = _call('hgetall', key)
+    flat = result.get('result') or []
+    return dict(zip(flat[0::2], flat[1::2]))
+
+
+def hdel(key, field):
+    return _call('hdel', key, field)

@@ -1,6 +1,9 @@
 """Calls the Claude API (vision) to pull structured data out of a photographed
-or scanned supplier invoice. Stdlib only (urllib), no pip deps needed on
-Vercel - same approach as the rest of these projects.
+or scanned supplier invoice - including documents that bundle MORE THAN ONE
+invoice (e.g. a multi-page statement), which is why this always asks for and
+parses a JSON ARRAY, even for the single-invoice case.
+
+Stdlib only (urllib), no pip deps needed on Vercel.
 
 Needs one environment variable:
   ANTHROPIC_API_KEY - from console.anthropic.com
@@ -8,6 +11,7 @@ Needs one environment variable:
 import json
 import os
 import re
+import urllib.error
 import urllib.request
 
 from _auth import check_key
@@ -15,8 +19,11 @@ from _auth import check_key
 MODEL = 'claude-sonnet-5'
 
 PROMPT = (
-    "Du tittar på en leverantörsfaktura. Läs ut följande fält och svara ENDAST "
-    "med ett giltigt JSON-objekt, inget annat, ingen markdown-formatering:\n\n"
+    "Du tittar på ett dokument som innehåller EN ELLER FLERA leverantörsfakturor "
+    "(t.ex. ett kontoutdrag kan innehålla flera fakturor efter varandra - läs av "
+    "varje faktura du hittar separat).\n\n"
+    "Svara ENDAST med en giltig JSON-array, inget annat, ingen markdown-formatering. "
+    "Varje element i arrayen är en faktura med exakt dessa fält:\n\n"
     "{\n"
     '  "leverantor": "leverantörens namn",\n'
     '  "fakturanummer": "fakturanumret",\n'
@@ -28,11 +35,12 @@ PROMPT = (
     '  "totalbelopp": 0.0\n'
     "}\n\n"
     "Om ett fält inte går att läsa, sätt det till en tom sträng (eller 0 för "
-    "belopp) - gissa aldrig ett värde du inte kan se."
+    "belopp) - gissa aldrig ett värde du inte kan se. Om dokumentet bara "
+    "innehåller EN faktura, svara ändå med en array som har ETT element."
 )
 
 
-def extract_invoice(key, media_type, base64_data):
+def extract_invoices(key, media_type, base64_data):
     if not check_key(key):
         return 403, {'error': 'forbidden'}
 
@@ -53,7 +61,7 @@ def extract_invoice(key, media_type, base64_data):
 
     body = json.dumps({
         'model': MODEL,
-        'max_tokens': 1024,
+        'max_tokens': 4096,
         'messages': [
             {
                 'role': 'user',
@@ -74,7 +82,7 @@ def extract_invoice(key, media_type, base64_data):
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             result = json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         detail = e.read().decode()[:300]
@@ -87,13 +95,16 @@ def extract_invoice(key, media_type, base64_data):
     except (KeyError, IndexError):
         return 502, {'error': 'ai_bad_response'}
 
-    match = re.search(r'\{.*\}', text, re.DOTALL)
+    match = re.search(r'\[.*\]', text, re.DOTALL)
     if not match:
         return 502, {'error': 'ai_no_json', 'raw': text[:300]}
 
     try:
-        fields = json.loads(match.group(0))
+        items = json.loads(match.group(0))
     except json.JSONDecodeError:
         return 502, {'error': 'ai_invalid_json', 'raw': text[:300]}
 
-    return 200, {'ok': True, 'fields': fields}
+    if not isinstance(items, list):
+        items = [items]
+
+    return 200, {'ok': True, 'invoices': items}

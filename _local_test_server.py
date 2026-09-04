@@ -12,32 +12,34 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'api'))
 
 import _store as store_mod
 
-_fake_lists = {}
+_fake_hashes = {}
 
-def fake_lrange(key, start=0, stop=-1):
-    return _fake_lists.get(key, [])
+def fake_hset(key, field, value):
+    _fake_hashes.setdefault(key, {})[field] = value
 
-def fake_rpush(key, value):
-    _fake_lists.setdefault(key, []).append(value)
+def fake_hget(key, field):
+    return _fake_hashes.get(key, {}).get(field)
 
-def fake_lrem_by_value(key, value):
-    lst = _fake_lists.setdefault(key, [])
-    if value in lst:
-        lst.remove(value)
+def fake_hgetall(key):
+    return dict(_fake_hashes.get(key, {}))
 
-store_mod.lrange = fake_lrange
-store_mod.rpush = fake_rpush
-store_mod.lrem_by_value = fake_lrem_by_value
+def fake_hdel(key, field):
+    _fake_hashes.get(key, {}).pop(field, None)
+
+store_mod.hset = fake_hset
+store_mod.hget = fake_hget
+store_mod.hgetall = fake_hgetall
+store_mod.hdel = fake_hdel
 
 os.environ['CLIENT_KEY'] = 'demo123'
 
 import _extract_logic
 
-def fake_extract_invoice(key, media_type, data):
+def fake_extract_invoices(key, media_type, data):
     from _auth import check_key
     if not check_key(key):
         return 403, {'error': 'forbidden'}
-    return 200, {'ok': True, 'fields': {
+    return 200, {'ok': True, 'invoices': [{
         'leverantor': 'Testleverantör AB',
         'fakturanummer': 'F-2026-042',
         'ocr': '987654321',
@@ -46,12 +48,12 @@ def fake_extract_invoice(key, media_type, data):
         'belopp_exkl_moms': 800.0,
         'moms': 200.0,
         'totalbelopp': 1000.0,
-    }}
+    }]}
 
-_extract_logic.extract_invoice = fake_extract_invoice
+_extract_logic.extract_invoices = fake_extract_invoices
 
 import index as index_mod
-index_mod.extract_logic.extract_invoice = fake_extract_invoice
+index_mod.extract_logic.extract_invoices = fake_extract_invoices
 
 ROOT = os.path.dirname(__file__)
 
