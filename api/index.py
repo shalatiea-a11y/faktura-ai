@@ -161,6 +161,8 @@ class handler(BaseHTTPRequestHandler):
                 code, payload = invoices_logic.update_invoice(key, body.get('id'), body.get('fields') or {})
             elif action == 'delete':
                 code, payload = invoices_logic.delete_invoice(key, body.get('id'))
+            elif action == 'reprocess':
+                code, payload = invoices_logic.reprocess_invoice(key, body.get('id'))
             else:
                 code, payload = invoices_logic.add_invoice(
                     key, body.get('company_id'), body.get('fields') or {}, body.get('file_id'),

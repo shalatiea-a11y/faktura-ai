@@ -145,6 +145,32 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .mail-status.on .dot { background: var(--success); }
 .mail-status.on { color: var(--success); }
 
+/* ---------- Invoice detail modal ---------- */
+tr.inv-row { cursor: pointer; }
+tr.inv-row:hover td { background: var(--surface-2); }
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 100;
+  align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto;
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  max-width: 760px; width: 100%; max-height: calc(100vh - 80px); display: flex; flex-direction: column;
+}
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); flex: none; }
+.modal-title { font-size: 17px; font-weight: 800; }
+.modal-sub { font-size: 13px; color: var(--ink-dim); margin-top: 2px; }
+.modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--ink-faint); padding: 4px; line-height: 1; }
+.modal-close:hover { color: var(--ink); }
+.modal-body { padding: 20px 24px 28px; overflow-y: auto; }
+.modal-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 14px 0 4px; }
+.modal-fields label { margin: 0 0 4px; }
+.modal-fields .val { font-size: 14px; font-weight: 600; }
+.modal-section { margin-top: 24px; }
+.modal-section h3 { font-size: 13px; margin: 0 0 10px; display: flex; align-items: center; justify-content: space-between; }
+.modal-reasons { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-top: 10px; line-height: 1.6; }
+#m-file-preview img { width: 100%; border-radius: 8px; border: 1px solid var(--border); display: block; }
+
 @media (max-width: 900px) {
   .sidebar { transform: translateX(-100%); }
   .sidebar.open { transform: translateX(0); }
@@ -154,10 +180,12 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
   .content { padding: 22px 16px 50px; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .edit-grid { grid-template-columns: 1fr 1fr; }
+  .modal-fields { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 480px) {
   .stat-grid { grid-template-columns: 1fr; }
   .edit-grid { grid-template-columns: 1fr; }
+  .modal-fields { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -259,6 +287,52 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
         </div>
       </section>
 
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="invoice-modal-overlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title" id="modal-leverantor">–</div>
+        <div class="modal-sub" id="modal-fakturanummer">–</div>
+      </div>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-badge"></div>
+      <div id="modal-reasons"></div>
+
+      <div class="modal-fields">
+        <div><label>OCR</label><div class="val" id="m-ocr">–</div></div>
+        <div><label>Fakturadatum</label><div class="val" id="m-fakturadatum">–</div></div>
+        <div><label>Förfallodatum</label><div class="val" id="m-forfallodatum">–</div></div>
+        <div><label>Belopp exkl moms</label><div class="val" id="m-exkl">–</div></div>
+        <div><label>Moms</label><div class="val" id="m-moms">–</div></div>
+        <div><label>Totalbelopp</label><div class="val" id="m-total">–</div></div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Momsuppdelning</h3>
+        <div id="m-moms-table"></div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Varurader <button class="btn ghost small" id="m-reprocess-btn" style="display:none;">Läs om fakturan</button></h3>
+        <div id="m-rader-table"></div>
+        <div class="msg" id="m-reprocess-msg"></div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Historik</h3>
+        <div id="m-history"></div>
+      </div>
+
+      <div class="modal-section">
+        <h3>Originalfil</h3>
+        <div id="m-file-preview"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -512,6 +586,9 @@ const ERROR_MESSAGES = {
   extract_failed: 'Kunde inte läsa fakturan',
   store_error: 'Databasen svarade inte som väntat',
   server_error: 'Ett oväntat fel inträffade',
+  no_original_file: 'Ingen originalfil sparad för denna faktura',
+  file_missing: 'Originalfilen kunde inte hämtas',
+  no_matching_invoice_in_file: 'Kunde inte hitta fakturan igen i originalfilen',
 };
 
 function describeError(err) {
@@ -643,6 +720,7 @@ function renderInvoices() {
 
 function renderViewRow(inv) {
   const tr = document.createElement('tr');
+  tr.className = 'inv-row';
   const badge = inv.status === 'needs_review'
     ? `<span class="badge review" title="${(inv.review_reasons || []).join(' · ')}">⚠ Kontrollera</span>`
     : `<span class="badge ok">✓ OK</span>`;
@@ -656,8 +734,16 @@ function renderViewRow(inv) {
       <button class="btn ghost small" data-edit="${inv.id}">Redigera</button>
       <button class="btn danger small" data-del="${inv.id}">Ta bort</button>
     </td>`;
-  tr.querySelector('[data-edit]').addEventListener('click', () => { editingId = inv.id; renderInvoices(); });
-  tr.querySelector('[data-del]').addEventListener('click', async () => {
+  tr.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    openInvoiceModal(inv);
+  });
+  tr.querySelector('[data-edit]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    editingId = inv.id; renderInvoices();
+  });
+  tr.querySelector('[data-del]').addEventListener('click', async (e) => {
+    e.stopPropagation();
     if (!confirm('Ta bort denna faktura?')) return;
     await fetch('/api/invoices', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -668,6 +754,119 @@ function renderViewRow(inv) {
   });
   return tr;
 }
+
+/* ---------- Invoice detail modal ---------- */
+let currentModalInvoice = null;
+const HISTORY_LABELS = { created: 'Skapad', updated: 'Redigerad', reprocessed: 'Omläst' };
+
+function fmtDateTime(ts) {
+  if (!ts) return '–';
+  return new Date(ts * 1000).toLocaleString('sv-SE', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function openInvoiceModal(inv) {
+  currentModalInvoice = inv;
+  document.getElementById('modal-leverantor').textContent = inv.leverantor || '–';
+  document.getElementById('modal-fakturanummer').textContent = inv.fakturanummer ? `Fakturanr ${inv.fakturanummer}` : '–';
+  document.getElementById('modal-badge').innerHTML = inv.status === 'needs_review'
+    ? '<span class="badge review">⚠ Kontrollera</span>' : '<span class="badge ok">✓ OK</span>';
+  const reasonsEl = document.getElementById('modal-reasons');
+  reasonsEl.innerHTML = (inv.review_reasons && inv.review_reasons.length)
+    ? `<div class="modal-reasons">${inv.review_reasons.map((r) => `• ${r}`).join('<br>')}</div>` : '';
+
+  document.getElementById('m-ocr').textContent = inv.ocr || '–';
+  document.getElementById('m-fakturadatum').textContent = inv.fakturadatum || '–';
+  document.getElementById('m-forfallodatum').textContent = inv.forfallodatum || '–';
+  document.getElementById('m-exkl').textContent = fmt(inv.belopp_exkl_moms);
+  document.getElementById('m-moms').textContent = fmt(inv.moms);
+  document.getElementById('m-total').textContent = fmt(inv.totalbelopp);
+
+  const momsRows = inv.moms_uppdelning || [];
+  document.getElementById('m-moms-table').innerHTML = momsRows.length
+    ? `<table><thead><tr><th>Skattesats</th><th class="num">Belopp</th></tr></thead><tbody>${
+        momsRows.map((r) => `<tr><td>${r.sats}%</td><td class="num">${fmt(r.belopp)}</td></tr>`).join('')
+      }</tbody></table>`
+    : '<div class="empty">Ingen uppdelning sparad.</div>';
+
+  const rader = inv.rader || [];
+  document.getElementById('m-rader-table').innerHTML = rader.length
+    ? `<table><thead><tr><th>Beskrivning</th><th class="num">Antal</th><th class="num">À-pris</th><th class="num">Moms</th><th class="num">Belopp</th></tr></thead><tbody>${
+        rader.map((r) => `<tr><td>${r.beskrivning || ''}</td><td class="num">${r.antal ?? ''}</td><td class="num">${fmt(r.apris)}</td><td class="num">${r.moms_procent}%</td><td class="num">${fmt(r.belopp)}</td></tr>`).join('')
+      }</tbody></table>`
+    : '<div class="empty">Inga varurader sparade för denna faktura.</div>';
+
+  const reprocessBtn = document.getElementById('m-reprocess-btn');
+  reprocessBtn.style.display = (!rader.length && inv.file_id) ? 'inline-flex' : 'none';
+  document.getElementById('m-reprocess-msg').textContent = '';
+
+  const history = inv.history || [];
+  document.getElementById('m-history').innerHTML = history.length
+    ? `<table><thead><tr><th>Händelse</th><th>När</th></tr></thead><tbody>${
+        history.slice().reverse().map((h) => `<tr><td>${HISTORY_LABELS[h.action] || h.action}</td><td>${fmtDateTime(h.ts)}</td></tr>`).join('')
+      }</tbody></table>`
+    : '<div class="empty">Ingen historik.</div>';
+
+  loadFilePreview(inv.file_id);
+  document.getElementById('invoice-modal-overlay').classList.add('show');
+}
+
+function closeInvoiceModal() {
+  document.getElementById('invoice-modal-overlay').classList.remove('show');
+  currentModalInvoice = null;
+}
+document.getElementById('modal-close').addEventListener('click', closeInvoiceModal);
+document.getElementById('invoice-modal-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'invoice-modal-overlay') closeInvoiceModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeInvoiceModal();
+});
+
+async function loadFilePreview(fileId) {
+  const box = document.getElementById('m-file-preview');
+  if (!fileId) { box.innerHTML = '<div class="empty">Ingen originalfil sparad.</div>'; return; }
+  box.innerHTML = '<div class="empty">Laddar…</div>';
+  try {
+    const res = await fetch(`/api/files?id=${encodeURIComponent(fileId)}&key=${encodeURIComponent(clientKey)}`);
+    const data = await res.json();
+    if (!res.ok || !data.data) throw new Error();
+    const src = `data:${data.media_type};base64,${data.data}`;
+    box.innerHTML = data.media_type === 'application/pdf'
+      ? `<embed src="${src}" type="application/pdf" style="width:100%;height:500px;border-radius:8px;border:1px solid var(--border);">`
+      : `<img src="${src}" alt="Originalfaktura">`;
+  } catch (e) {
+    box.innerHTML = '<div class="empty">Kunde inte ladda originalfilen.</div>';
+  }
+}
+
+document.getElementById('m-reprocess-btn').addEventListener('click', async () => {
+  if (!currentModalInvoice) return;
+  const btn = document.getElementById('m-reprocess-btn');
+  const msg = document.getElementById('m-reprocess-msg');
+  btn.disabled = true;
+  msg.className = 'msg';
+  msg.textContent = 'Läser om…';
+  try {
+    const res = await fetch('/api/invoices', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: clientKey, action: 'reprocess', id: currentModalInvoice.id }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new ApiError(data.error || 'extract_failed', data.detail);
+    const idx = invoices.findIndex((i) => i.id === data.invoice.id);
+    if (idx !== -1) invoices[idx] = data.invoice;
+    msg.className = 'msg success';
+    msg.textContent = 'Klart.';
+    openInvoiceModal(data.invoice);
+    renderInvoices();
+    await loadDashboard();
+  } catch (e) {
+    msg.className = 'msg error';
+    msg.textContent = describeError(e);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 function renderEditRow(inv) {
   const tr = document.createElement('tr');

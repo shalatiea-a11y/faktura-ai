@@ -74,6 +74,24 @@ def fake_extract_invoices(key, media_type, data, filename=None):
 
 _extract_logic.extract_invoices = fake_extract_invoices
 
+
+def fake_extract_invoices_internal(media_type, base64_data, filename=None):
+    return 200, {'ok': True, 'invoices': [{
+        'leverantor': 'Testleverantör AB',
+        'fakturanummer': 'F-2026-042',
+        'ocr': '987654321',
+        'fakturadatum': '2026-08-15',
+        'forfallodatum': '2026-09-15',
+        'belopp_exkl_moms': 800.0,
+        'moms': 200.0,
+        'totalbelopp': 1000.0,
+        'rader': [{'beskrivning': 'Konsulttjänst', 'antal': 2, 'apris': 400.0, 'moms_procent': 25, 'belopp': 800.0}],
+        'moms_uppdelning': [{'sats': 25, 'belopp': 200.0}],
+    }]}
+
+
+_extract_logic._extract_invoices_internal = fake_extract_invoices_internal
+
 import index as index_mod
 index_mod.extract_logic.extract_invoices = fake_extract_invoices
 

@@ -35,11 +35,24 @@ PROMPT = (
     '  "forfallodatum": "YYYY-MM-DD",\n'
     '  "belopp_exkl_moms": 0.0,\n'
     '  "moms": 0.0,\n'
-    '  "totalbelopp": 0.0\n'
+    '  "totalbelopp": 0.0,\n'
+    '  "rader": [\n'
+    '    {"beskrivning": "vad raden gäller", "antal": 1.0, "apris": 0.0, "moms_procent": 25, "belopp": 0.0}\n'
+    "  ],\n"
+    '  "moms_uppdelning": [\n'
+    '    {"sats": 25, "belopp": 0.0}\n'
+    "  ]\n"
     "}\n\n"
     "Om ett fält inte går att läsa, sätt det till en tom sträng (eller 0 för "
     "belopp) - gissa aldrig ett värde du inte kan se. Om dokumentet bara "
-    "innehåller EN faktura, svara ändå med en array som har ETT element."
+    "innehåller EN faktura, svara ändå med en array som har ETT element.\n\n"
+    '"rader" är varje enskild produkt-/tjänsterad på fakturan om de går att '
+    "urskilja - lämna som en tom lista [] om fakturan bara visar en "
+    "totalsumma utan uppdelade rader, gissa aldrig ihop rader som inte syns. "
+    '"moms_uppdelning" är momsbeloppet uppdelat per momssats om fakturan har '
+    "fler än en sats (t.ex. både 25% och 12%) - annars räcker en post med "
+    "hela momsbeloppet på den enda satsen, eller en tom lista [] om momssatsen "
+    "inte går att avgöra."
 )
 
 
