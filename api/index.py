@@ -20,6 +20,8 @@ import _mail_logic as mail_logic  # noqa: E402
 import _auth as auth_logic  # noqa: E402
 import _users_logic as users_logic  # noqa: E402
 import _admin_logic as admin_logic  # noqa: E402
+import _events_logic as events_logic  # noqa: E402
+import _google_oauth as google_oauth  # noqa: E402
 from _store import StoreNotConfigured, StoreRequestFailed  # noqa: E402
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..')
@@ -70,6 +72,14 @@ class handler(BaseHTTPRequestHandler):
             self._send(code, payload)
             return
 
+        if path.startswith('/api/auth/google/start'):
+            self._handle_google_start(key)
+            return
+
+        if path.startswith('/api/auth/google/callback'):
+            self._handle_google_callback(qs)
+            return
+
         if path.startswith('/api/companies'):
             code, payload = companies_logic.list_companies(key)
         elif path.startswith('/api/invoices'):
@@ -105,7 +115,10 @@ class handler(BaseHTTPRequestHandler):
             code, payload = auth_logic.login(body.get('email'), body.get('password'))
 
         elif path.startswith('/api/account'):
-            code, payload = users_logic.update_mail_settings(key, body.get('mail_address'), body.get('mail_app_password'))
+            if body.get('action') == 'disconnect_gmail':
+                code, payload = users_logic.disconnect_gmail(key)
+            else:
+                code, payload = 400, {'error': 'unknown_action'}
 
         elif path.startswith('/api/extract'):
             media_type = body.get('media_type') or ''
@@ -140,6 +153,56 @@ class handler(BaseHTTPRequestHandler):
             code, payload = 404, {'error': 'not_found'}
 
         self._send(code, payload)
+
+    def _handle_google_start(self, key):
+        uid = auth_logic.verify_session(key)
+        if not uid:
+            self._send(403, {'error': 'forbidden'})
+            return
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        if not client_id:
+            self._send(503, {'error': 'google_oauth_not_configured'})
+            return
+        redirect_uri = f"https://{self.headers.get('Host', '')}/api/auth/google/callback"
+        # The session token itself doubles as the OAuth `state` - it's already
+        # a signed, tamper-proof value that verify_session can check on the
+        # way back, so there's no need for a second CSRF-token mechanism.
+        url = google_oauth.build_auth_url(client_id, redirect_uri, state=key)
+        self._redirect(url)
+
+    def _handle_google_callback(self, qs):
+        code = (qs.get('code') or [''])[0]
+        state = (qs.get('state') or [''])[0]
+        uid = auth_logic.verify_session(state)
+        if not uid or not code:
+            self._redirect('/app.html?gmail=error')
+            return
+
+        client_id = os.environ.get('GOOGLE_CLIENT_ID')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+        if not client_id or not client_secret:
+            self._redirect('/app.html?gmail=error')
+            return
+        redirect_uri = f"https://{self.headers.get('Host', '')}/api/auth/google/callback"
+
+        try:
+            tokens = google_oauth.exchange_code(client_id, client_secret, redirect_uri, code)
+            refresh_token = tokens.get('refresh_token')
+            if not refresh_token:
+                self._redirect('/app.html?gmail=error')
+                return
+            profile = google_oauth.get_profile(tokens['access_token'])
+            gmail_email = profile.get('emailAddress', '')
+            users_logic.save_gmail_connection(uid, gmail_email, refresh_token)
+            events_logic.log_event('gmail_connected', uid, users_logic.get_firm_name(uid), email=gmail_email)
+            self._redirect('/app.html?gmail=connected')
+        except Exception:
+            self._redirect('/app.html?gmail=error')
+
+    def _redirect(self, location):
+        self.send_response(302)
+        self.send_header('Location', location)
+        self.end_headers()
 
     def _send(self, code, payload):
         self.send_response(code)

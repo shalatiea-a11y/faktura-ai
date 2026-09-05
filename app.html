@@ -245,19 +245,16 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 
         <div class="card">
           <h2>Automatisk mejl-in</h2>
-          <div class="mail-status" id="mail-status"><span class="dot"></span><span id="mail-status-text">Inte konfigurerat</span></div>
-          <label>Mejladress (dedikerat Gmail-konto)</label>
-          <input type="text" id="mail-address" placeholder="dinbyra.fakturor@gmail.com">
-          <label>App-lösenord (Gmail)</label>
-          <input type="text" id="mail-password" placeholder="16-teckens app-lösenord">
-          <button class="btn" id="mail-save-btn" style="margin-top:16px;">Spara</button>
+          <div class="mail-status" id="mail-status"><span class="dot"></span><span id="mail-status-text">Inte anslutet</span></div>
+          <div class="page-sub" id="gmail-email-line" style="display:none;margin-bottom:16px;"></div>
+          <button class="btn" id="connect-gmail-btn">Anslut Gmail</button>
+          <button class="btn danger" id="disconnect-gmail-btn" style="display:none;">Koppla bort</button>
           <div class="msg" id="mail-msg"></div>
           <div class="settings-hint">
-            Fakturor som mejlas till adressen ovan hämtas och bearbetas automatiskt en gång om dagen.
-            Skapa ett <b>nytt, dedikerat Gmail-konto</b> bara för fakturor (inte ert vanliga) - gå sedan till
-            <b>Google Account → Security → 2-Step Verification</b>, slå på den, och skapa ett
-            <b>App password</b> för "Mail". Klistra in de 16 tecknen ovan. Varje klientföretag under
-            "Fakturor" har en egen kod (visas när klienten är vald) - be avsändaren skriva koden i ämnesraden.
+            Anslut valfritt Gmail-konto - fakturor som mejlas dit hämtas och bearbetas automatiskt en
+            gång om dagen. Ni godkänner bara åtkomsten hos Google, inget lösenord att fylla i här. Varje
+            klientföretag under "Fakturor" har en egen kod (visas när klienten är vald) - be avsändaren
+            skriva koden i ämnesraden.
           </div>
         </div>
       </section>
@@ -288,8 +285,15 @@ async function init() {
   document.getElementById('sidebar-email').textContent = account.email || localStorage.getItem('fa_email') || '';
   document.getElementById('settings-firm').value = account.firm_name || '';
   document.getElementById('settings-email').value = account.email || '';
-  document.getElementById('mail-address').value = account.mail_address || '';
-  setMailStatus(account.mail_configured);
+  setGmailStatus(account.gmail_connected, account.gmail_email);
+
+  const gmailParam = new URLSearchParams(location.search).get('gmail');
+  if (gmailParam) {
+    const msg = document.getElementById('mail-msg');
+    msg.className = gmailParam === 'connected' ? 'msg success' : 'msg error';
+    msg.textContent = gmailParam === 'connected' ? 'Gmail anslutet!' : 'Kunde inte ansluta Gmail. Försök igen.';
+    history.replaceState(null, '', location.pathname);
+  }
 
   await loadCompanies();
   await loadDashboard();
@@ -362,39 +366,43 @@ async function loadDashboard() {
   }
 }
 
-/* ---------- Settings: mail-in ---------- */
-function setMailStatus(on) {
+/* ---------- Settings: Gmail-in ---------- */
+function setGmailStatus(connected, gmailEmail) {
   const el = document.getElementById('mail-status');
-  el.classList.toggle('on', !!on);
-  document.getElementById('mail-status-text').textContent = on ? 'Aktiverat' : 'Inte konfigurerat';
+  el.classList.toggle('on', !!connected);
+  document.getElementById('mail-status-text').textContent = connected ? 'Anslutet' : 'Inte anslutet';
+  document.getElementById('connect-gmail-btn').style.display = connected ? 'none' : 'inline-flex';
+  document.getElementById('disconnect-gmail-btn').style.display = connected ? 'inline-flex' : 'none';
+  const line = document.getElementById('gmail-email-line');
+  if (connected && gmailEmail) {
+    line.style.display = 'block';
+    line.textContent = `Ansluten adress: ${gmailEmail}`;
+  } else {
+    line.style.display = 'none';
+  }
 }
 
-document.getElementById('mail-save-btn').addEventListener('click', async () => {
-  const btn = document.getElementById('mail-save-btn');
+document.getElementById('connect-gmail-btn').addEventListener('click', () => {
+  location.href = `/api/auth/google/start?key=${encodeURIComponent(clientKey)}`;
+});
+
+document.getElementById('disconnect-gmail-btn').addEventListener('click', async () => {
+  if (!confirm('Koppla bort Gmail? Fakturor slutar hämtas automatiskt tills ni ansluter igen.')) return;
   const msg = document.getElementById('mail-msg');
-  btn.disabled = true;
-  msg.className = 'msg';
-  msg.textContent = '';
   try {
     const res = await fetch('/api/account', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        key: clientKey,
-        mail_address: document.getElementById('mail-address').value.trim(),
-        mail_app_password: document.getElementById('mail-password').value.trim(),
-      }),
+      body: JSON.stringify({ key: clientKey, action: 'disconnect_gmail' }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'unknown');
-    setMailStatus(data.account.mail_configured);
-    document.getElementById('mail-password').value = '';
+    setGmailStatus(data.account.gmail_connected, data.account.gmail_email);
     msg.className = 'msg success';
-    msg.textContent = 'Sparat.';
+    msg.textContent = 'Bortkopplat.';
   } catch (e) {
     msg.className = 'msg error';
-    msg.textContent = 'Kunde inte spara. Försök igen.';
+    msg.textContent = 'Kunde inte koppla bort. Försök igen.';
   }
-  btn.disabled = false;
 });
 
 /* ---------- Companies ---------- */

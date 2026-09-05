@@ -64,7 +64,6 @@ h1 .accent { color: var(--primary); }
 .preview-row b { font-weight: 700; }
 .preview-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
 .preview-badge.ok { background: #ecfdf3; color: #16a34a; }
-.preview-badge.warn { background: #fffbeb; color: #d97706; }
 .preview-stat { padding: 16px; border-radius: 10px; background: var(--primary-light); }
 .preview-stat .n { font-size: 24px; font-weight: 800; color: var(--primary-dark); }
 .preview-stat .l { font-size: 12px; color: var(--ink-dim); font-weight: 600; }
@@ -132,7 +131,7 @@ footer { border-top: 1px solid var(--border); padding: 28px 0; }
 
 <div class="wrap">
   <div class="hero">
-    <div class="eyebrow">✨ Byggt med Claude AI</div>
+    <div class="eyebrow">✨ AI-driven fakturahantering</div>
     <h1>Fakturor in, siffror ut.<br><span class="accent">Automatiskt.</span></h1>
     <p class="hero-sub">
       Ladda upp eller mejla in leverantörsfakturor - AI:n läser av leverantör, belopp, moms och datum,
@@ -149,14 +148,14 @@ footer { border-top: 1px solid var(--border); padding: 28px 0; }
     <div class="preview-bar"><span></span><span></span><span></span></div>
     <div class="preview-body">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <div class="preview-row"><span>Elbolaget AB · #4471</span><span class="preview-badge ok">✓ OK</span></div>
         <div class="preview-row"><span>Kontorsmaterial HB · #2290</span><span class="preview-badge ok">✓ OK</span></div>
-        <div class="preview-row"><span>Städservice Nord · #118</span><span class="preview-badge warn">⚠ Kontrollera</span></div>
+        <div class="preview-row"><span>Städservice Nord · #118</span><span class="preview-badge ok">✓ OK</span></div>
         <div class="preview-row"><span>IT-Support AB · #9903</span><span class="preview-badge ok">✓ OK</span></div>
+        <div class="preview-row"><span>Bygg & Montage AB · #331</span><span class="preview-badge ok">✓ OK</span></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <div class="preview-stat"><div class="n">128</div><div class="l">Fakturor denna månad</div></div>
-        <div class="preview-stat"><div class="n">3</div><div class="l">Behöver kontroll</div></div>
+        <div class="preview-stat"><div class="n">100%</div><div class="l">Sparas automatiskt</div></div>
         <div class="preview-stat"><div class="n">12</div><div class="l">Klientföretag</div></div>
       </div>
     </div>
@@ -227,7 +226,7 @@ footer { border-top: 1px solid var(--border); padding: 28px 0; }
       <div class="step">
         <div class="step-num">2</div>
         <h3>AI läser och sparar</h3>
-        <p>Claude läser av varje faktura och sparar den direkt - osäkra fall flaggas för manuell koll.</p>
+        <p>AI:n läser av varje faktura och sparar den direkt - osäkra fall flaggas för manuell koll.</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
@@ -253,7 +252,6 @@ footer { border-top: 1px solid var(--border); padding: 28px 0; }
   <div class="wrap">
     <div class="foot-row">
       <span>© 2026 Fakturaskanning</span>
-      <span>Byggt med Claude AI</span>
     </div>
   </div>
 </footer>

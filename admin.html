@@ -127,6 +127,7 @@ const EVENT_LABELS = {
   extract_error: 'AI-fel',
   file_error: 'Filfel',
   mail_error: 'Mejl-in-fel',
+  gmail_connected: 'Gmail anslutet',
 };
 const EVENT_BADGE_CLASS = {
   signup: 'primary',
@@ -135,6 +136,7 @@ const EVENT_BADGE_CLASS = {
   extract_error: 'warn',
   file_error: 'warn',
   mail_error: 'warn',
+  gmail_connected: 'on',
 };
 
 let adminKey = sessionStorage.getItem('fa_admin_key') || '';
@@ -182,7 +184,7 @@ async function loadOverview() {
             <td class="num">${f.invoices}</td>
             <td class="num">${f.needs_review ? `<span class="badge warn">${f.needs_review}</span>` : '0'}</td>
             <td class="num">${fmt(f.total_amount)}</td>
-            <td>${f.mail_configured ? '<span class="badge on">På</span>' : '<span class="badge off">Av</span>'}</td>
+            <td>${f.gmail_connected ? '<span class="badge on">På</span>' : '<span class="badge off">Av</span>'}</td>
           </tr>`).join('')}</tbody>
       </table>`;
   }

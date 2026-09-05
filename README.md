@@ -56,27 +56,51 @@ Python serverless API på Vercel + delad Redis-databas (Upstash).
 kostnad, redan inräknad i affärsmodellens pris). Utan `ANTHROPIC_API_KEY`
 visar appen ett tydligt felmeddelande istället för att krascha.
 
-### 5. (Valfritt) Automatisk mejl-in
-Varje byrå kopplar in detta själva från **Inställningar** i appen - inget
-för dig att göra i Vercel. Fakturor som mejlas till byråns egen inkorg
-hämtas och bearbetas automatiskt en gång om dagen (gratis-gränsen på Vercel
-tillåter cron-jobb max en gång/dygn - vill man ha det snabbare krävs
-Vercel Pro).
+### 5. Automatisk mejl-in (Gmail, kräver engångsuppsättning av dig)
+Byrån ansluter sitt Gmail-konto med **en knapp** ("Anslut Gmail" under
+Inställningar i appen) - de klistrar aldrig in något lösenord, bara
+godkänner åtkomsten hos Google. Men för att den knappen ska fungera måste
+DU (en gång, inte per kund) skapa en Google OAuth-klient:
 
-Så gör byrån:
-1. Skapar ett **nytt, dedikerat Gmail-konto** bara för fakturor (t.ex.
-   `dinbyra.fakturor@gmail.com`) - inte sitt vanliga konto.
-2. På det kontot: **Google Account → Security → 2-Step Verification** (slå på
-   om det inte redan är på) → **App passwords** → skapar ett för "Mail",
-   kopierar de 16 tecknen.
-3. Klistrar in mejladress + de 16 tecknen under **Inställningar** i appen.
-4. Varje klientföretag i appen får en kort **kod** (visas under "Fakturor"
-   när man valt klienten, t.ex. "KALLES") - de ber den som skickar fakturan
-   skriva koden i ämnesraden så hamnar den rätt. Mejl utan igenkänd kod
-   hamnar i en "Okategoriserat"-klient istället för att försvinna.
+1. Gå till **console.cloud.google.com**, skapa ett nytt projekt (gratis).
+2. **APIs & Services → Library**, sök upp **Gmail API**, klicka **Enable**.
+3. **APIs & Services → OAuth consent screen**:
+   - User type: **External**.
+   - Fyll i appnamn (t.ex. "Fakturaskanning"), din e-post som support-mejl.
+   - **Scopes**: lägg till `.../auth/gmail.readonly`.
+   - **Publishing status**: låt den vara **Testing** till att börja med -
+     det är gratis och kräver ingen granskning från Google, men max 100
+     "test users" och bara e-postadresser du själv lagt till kan ansluta.
+     Under **Test users**, lägg till varje kunds Gmail-adress när de blir
+     kund (annars stoppar Google inloggningen med ett felmeddelande).
+     Vill ni senare öppna det för alla utan att lägga till adresser manuellt
+     krävs en formell Google-verifiering (kräver bl.a. en publik
+     integritetspolicy) - inget ni behöver bry er om förrän ni har riktig
+     skala.
+4. **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
+   - Application type: **Web application**.
+   - **Authorized redirect URIs**, lägg till:
+     `https://DIN-DOMÄN.vercel.app/api/auth/google/callback`
+     (byt ut mot er riktiga Vercel-domän - måste matcha exakt).
+   - Klicka **Create** - ni får ett **Client ID** och **Client secret**.
+5. I Vercel, **Settings → Environment Variables**, lägg till:
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+6. Redeploy.
 
-En sak för dig som driftar tjänsten: `CRON_SECRET` (**Settings → Environment
-Variables**) = en slumpad sträng (minst 16 tecken) - skyddar
+Efter det: varje byrå klickar bara "Anslut Gmail" i Inställningar, godkänner
+hos Google, klart. Varje klientföretag i appen får en kort **kod** (visas
+under "Fakturor" när man valt klienten, t.ex. "KALLES") - de ber den som
+skickar fakturan skriva koden i ämnesraden så hamnar den rätt. Mejl utan
+igenkänd kod hamnar i en "Okategoriserat"-klient istället för att försvinna.
+
+Fakturor hämtas en gång om dagen (gratis-gränsen på Vercel tillåter
+cron-jobb max en gång/dygn - vill man ha det snabbare krävs Vercel Pro).
+Åtkomsten är **läs-only** - appen kan aldrig ändra, radera eller skicka
+något i kundens inkorg.
+
+En sak till för dig som driftar tjänsten: `CRON_SECRET` (**Settings →
+Environment Variables**) = en slumpad sträng (minst 16 tecken) - skyddar
 cron-endpointen `/api/cron/check-mail` från att triggas av utomstående.
 Vercel skickar den automatiskt som `Authorization: Bearer <CRON_SECRET>`.
 
@@ -118,7 +142,9 @@ den riktiga kodvägen, bara datan är i minnet.
 - `api/_auth.py` - konton: signup/login, lösenordshashning (pbkdf2), och
   signerade inloggningssessioner (`SESSION_SECRET`) - ersätter den gamla
   delade `CLIENT_KEY`.
-- `api/_users_logic.py` - kontoinställningar (mejl-in-uppgifter per byrå).
+- `api/_users_logic.py` - kontoinställningar (Gmail-anslutning per byrå).
+- `api/_google_oauth.py` - Google OAuth (endast läs-scope) + Gmail API-anrop,
+  stdlib `urllib` (ingen google-api-python-client).
 - `api/_admin_logic.py` - aggregerad statistik över alla byråer, skild
   auktorisering (`ADMIN_KEY`) från byråernas egna konton.
 - `api/_extract_logic.py` - anropar Claude, ber alltid om en JSON-array
@@ -131,8 +157,8 @@ den riktiga kodvägen, bara datan är i minnet.
   skickar en otydlig `media_type` (t.ex. `application/octet-stream` för en
   PDF), så en riktig faktura inte skickas till AI:n som fel typ.
 - `api/_mail_logic.py` - Vercel Cron (en gång/dygn) loopar över varje byrå
-  som kopplat in en mejl-inkorg och kollar den via IMAP (stdlib `imaplib`,
-  ingen OAuth), kör varje bilaga genom samma pipeline som manuell uppladdning.
+  som anslutit Gmail och kollar inkorgen via Gmail API (läs-only), kör varje
+  bilaga genom samma pipeline som manuell uppladdning.
 - `api/_store.py` - Redis-klient (hash-baserad för uppslagning/uppdatering
   per id; skickar kommandon som POST-body, inte i URL:en, så det funkar även
   för stora filer).

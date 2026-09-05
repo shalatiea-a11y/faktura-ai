@@ -1,7 +1,6 @@
-"""Per-firm account settings - currently just the mail-in inbox credentials
-(previously a single global MAIL_ADDRESS/MAIL_APP_PASSWORD env var pair
-shared by everyone; now each firm can plug in its own dedicated inbox from
-the Inställningar page).
+"""Per-firm account settings - currently just the connected Gmail inbox for
+mail-in (an OAuth refresh token from the "Anslut Gmail" button, see
+_google_oauth.py - not a pasted app password).
 """
 import json
 
@@ -13,8 +12,8 @@ def _public_view(user):
     return {
         'email': user.get('email', ''),
         'firm_name': user.get('firm_name', ''),
-        'mail_address': user.get('mail_address', ''),
-        'mail_configured': bool(user.get('mail_address') and user.get('mail_app_password')),
+        'gmail_email': user.get('gmail_email', ''),
+        'gmail_connected': bool(user.get('gmail_refresh_token')),
     }
 
 
@@ -31,7 +30,21 @@ def get_account(key):
     return 200, {'ok': True, 'account': _public_view(json.loads(raw))}
 
 
-def update_mail_settings(key, mail_address, mail_app_password):
+def save_gmail_connection(uid, gmail_email, refresh_token):
+    """Called from the OAuth callback once Google has granted access -
+    no session key here, the caller already resolved+verified uid from the
+    signed `state` param."""
+    raw = hget('users', uid)
+    if not raw:
+        return False
+    user = json.loads(raw)
+    user['gmail_email'] = (gmail_email or '').strip()[:200]
+    user['gmail_refresh_token'] = refresh_token
+    hset('users', uid, json.dumps(user))
+    return True
+
+
+def disconnect_gmail(key):
     uid = verify_session(key)
     if not uid:
         return 403, {'error': 'forbidden'}
@@ -43,8 +56,8 @@ def update_mail_settings(key, mail_address, mail_app_password):
         return 404, {'error': 'not_found'}
 
     user = json.loads(raw)
-    user['mail_address'] = (mail_address or '').strip()[:200]
-    user['mail_app_password'] = (mail_app_password or '').strip()[:200]
+    user.pop('gmail_email', None)
+    user.pop('gmail_refresh_token', None)
     try:
         hset('users', uid, json.dumps(user))
     except StoreNotConfigured:
@@ -66,10 +79,10 @@ def get_firm_name(uid):
         return ''
 
 
-def list_mail_enabled_users():
-    """For the mail cron: every firm that has plugged in an inbox."""
+def list_gmail_connected_users():
+    """For the mail cron: every firm that has connected Gmail."""
     try:
         users = [json.loads(v) for v in hgetall('users').values()]
     except StoreNotConfigured:
         return []
-    return [u for u in users if u.get('mail_address') and u.get('mail_app_password')]
+    return [u for u in users if u.get('gmail_refresh_token')]

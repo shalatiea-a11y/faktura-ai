@@ -62,7 +62,7 @@ def get_overview(key):
             'invoices': len(invoice_list),
             'needs_review': needs_review,
             'total_amount': round(amount, 2),
-            'mail_configured': bool(user.get('mail_address') and user.get('mail_app_password')),
+            'gmail_connected': bool(user.get('gmail_refresh_token')),
         })
         total_companies += len(companies)
         total_invoices += len(invoice_list)
