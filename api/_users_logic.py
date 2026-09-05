@@ -4,7 +4,7 @@ _google_oauth.py - not a pasted app password).
 """
 import json
 
-from _store import hset, hget, hgetall, StoreNotConfigured, StoreRequestFailed
+from _store import hset, hget, hgetall, hdel, StoreNotConfigured, StoreRequestFailed
 from _auth import verify_session
 
 
@@ -33,7 +33,8 @@ def get_account(key):
 def save_gmail_connection(uid, gmail_email, refresh_token):
     """Called from the OAuth callback once Google has granted access -
     no session key here, the caller already resolved+verified uid from the
-    signed `state` param."""
+    signed `state` param. Also maintains a gmail_email -> uid index, since
+    an incoming push notification only tells us the mailbox address."""
     raw = hget('users', uid)
     if not raw:
         return False
@@ -41,7 +42,31 @@ def save_gmail_connection(uid, gmail_email, refresh_token):
     user['gmail_email'] = (gmail_email or '').strip()[:200]
     user['gmail_refresh_token'] = refresh_token
     hset('users', uid, json.dumps(user))
+    if user['gmail_email']:
+        hset('users_by_gmail_email', user['gmail_email'], uid)
     return True
+
+
+def save_watch_state(uid, history_id, expiration):
+    """Records where Gmail push notification history-sync should resume
+    from, and (for our own bookkeeping) when the watch subscription expires
+    - Gmail push subscriptions need renewing roughly every 7 days."""
+    raw = hget('users', uid)
+    if not raw:
+        return
+    user = json.loads(raw)
+    if history_id:
+        user['gmail_history_id'] = history_id
+    if expiration:
+        user['gmail_watch_expiration'] = expiration
+    hset('users', uid, json.dumps(user))
+
+
+def find_uid_by_gmail_email(gmail_email):
+    try:
+        return hget('users_by_gmail_email', (gmail_email or '').strip())
+    except (StoreNotConfigured, StoreRequestFailed):
+        return None
 
 
 def disconnect_gmail(key):
@@ -56,10 +81,13 @@ def disconnect_gmail(key):
         return 404, {'error': 'not_found'}
 
     user = json.loads(raw)
-    user.pop('gmail_email', None)
-    user.pop('gmail_refresh_token', None)
+    gmail_email = user.get('gmail_email')
+    for field in ('gmail_email', 'gmail_refresh_token', 'gmail_history_id', 'gmail_watch_expiration'):
+        user.pop(field, None)
     try:
         hset('users', uid, json.dumps(user))
+        if gmail_email:
+            hdel('users_by_gmail_email', gmail_email)
     except StoreNotConfigured:
         return 503, {'error': 'store_not_configured'}
     return 200, {'ok': True, 'account': _public_view(user)}

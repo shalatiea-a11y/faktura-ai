@@ -10,6 +10,7 @@
     { "source": "/api/admin/overview", "destination": "/api/index" },
     { "source": "/api/auth/google/start", "destination": "/api/index" },
     { "source": "/api/auth/google/callback", "destination": "/api/index" },
+    { "source": "/api/gmail/push", "destination": "/api/index" },
     { "source": "/api/cron/check-mail", "destination": "/api/index" },
     { "source": "/", "destination": "/index.html" },
     { "source": "/login.html", "destination": "/api/index" },

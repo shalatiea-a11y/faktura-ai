@@ -71,6 +71,33 @@ def _get(url, access_token):
         return json.loads(resp.read().decode())
 
 
+def _post_json(url, access_token, data):
+    body = json.dumps(data).encode()
+    req = urllib.request.Request(
+        url, data=body,
+        headers={'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'},
+        method='POST',
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read().decode())
+
+
+def watch(access_token, topic_name):
+    """Registers (or renews - it's idempotent) a Gmail push subscription:
+    Google will publish a Pub/Sub message to `topic_name` whenever this
+    mailbox's INBOX changes. Expires after ~7 days, so this needs calling
+    again before then (the daily cron does this automatically)."""
+    return _post_json(f'{GMAIL_API}/watch', access_token, {'topicName': topic_name, 'labelIds': ['INBOX']})
+
+
+def list_history(access_token, start_history_id):
+    """Incremental sync since `start_history_id` - used when a push
+    notification arrives, so we only fetch what's actually new instead of
+    re-listing the whole inbox."""
+    params = urllib.parse.urlencode({'startHistoryId': start_history_id, 'historyTypes': 'messageAdded'})
+    return _get(f'{GMAIL_API}/history?{params}', access_token)
+
+
 def get_profile(access_token):
     return _get(f'{GMAIL_API}/profile', access_token)
 

@@ -5,6 +5,8 @@ learned there) appears to swallow ALL paths into this one function - so this
 also serves index.html directly rather than relying on Vercel's static
 file server.
 """
+import base64
+import hmac
 import json
 import os
 import sys
@@ -99,6 +101,21 @@ class handler(BaseHTTPRequestHandler):
 
     def _route_post(self):
         path = urlparse(self.path).path
+        qs = parse_qs(urlparse(self.path).query)
+
+        if path.startswith('/api/gmail/push'):
+            # Pub/Sub delivers a JSON envelope, not our usual {key: ...}
+            # body shape, and this is authenticated via a URL secret, not a
+            # session - handle it before the normal body/key parsing below.
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+                body = json.loads(self.rfile.read(length) or b'{}')
+            except Exception:
+                body = {}
+            code, payload = self._handle_gmail_push(qs, body)
+            self._send(code, payload)
+            return
+
         try:
             length = int(self.headers.get('Content-Length', 0))
             body = json.loads(self.rfile.read(length) or b'{}')
@@ -195,9 +212,39 @@ class handler(BaseHTTPRequestHandler):
             gmail_email = profile.get('emailAddress', '')
             users_logic.save_gmail_connection(uid, gmail_email, refresh_token)
             events_logic.log_event('gmail_connected', uid, users_logic.get_firm_name(uid), email=gmail_email)
+
+            # Register push notifications right away so mail-in is instant
+            # from the moment they connect, instead of waiting for the next
+            # daily cron run to set it up.
+            topic_name = os.environ.get('GOOGLE_PUBSUB_TOPIC')
+            if topic_name:
+                try:
+                    watch_result = google_oauth.watch(tokens['access_token'], topic_name)
+                    users_logic.save_watch_state(uid, watch_result.get('historyId'), watch_result.get('expiration'))
+                except Exception:
+                    pass  # not fatal - the daily poll still covers this firm either way
+
             self._redirect('/app.html?gmail=connected')
         except Exception:
             self._redirect('/app.html?gmail=error')
+
+    def _handle_gmail_push(self, qs, body):
+        expected = os.environ.get('PUBSUB_SECRET')
+        got = (qs.get('secret') or [''])[0]
+        if not expected or not hmac.compare_digest(got, expected):
+            return 403, {'error': 'forbidden'}
+        try:
+            message = body.get('message') or {}
+            data_b64 = message.get('data', '')
+            padding = '=' * (-len(data_b64) % 4)
+            notification = json.loads(base64.urlsafe_b64decode(data_b64 + padding).decode())
+            gmail_email = notification.get('emailAddress', '')
+            history_id = notification.get('historyId')
+            if gmail_email and history_id:
+                mail_logic.handle_push_notification(gmail_email, history_id)
+        except Exception:
+            pass  # always ack - a broken/unexpected payload should never make Pub/Sub retry forever
+        return 200, {'ok': True}
 
     def _redirect(self, location):
         self.send_response(302)

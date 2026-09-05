@@ -94,8 +94,6 @@ under "Fakturor" när man valt klienten, t.ex. "KALLES") - de ber den som
 skickar fakturan skriva koden i ämnesraden så hamnar den rätt. Mejl utan
 igenkänd kod hamnar i en "Okategoriserat"-klient istället för att försvinna.
 
-Fakturor hämtas en gång om dagen (gratis-gränsen på Vercel tillåter
-cron-jobb max en gång/dygn - vill man ha det snabbare krävs Vercel Pro).
 Åtkomsten är **läs-only** - appen kan aldrig ändra, radera eller skicka
 något i kundens inkorg.
 
@@ -103,6 +101,40 @@ En sak till för dig som driftar tjänsten: `CRON_SECRET` (**Settings →
 Environment Variables**) = en slumpad sträng (minst 16 tecken) - skyddar
 cron-endpointen `/api/cron/check-mail` från att triggas av utomstående.
 Vercel skickar den automatiskt som `Authorization: Bearer <CRON_SECRET>`.
+
+### 5b. (Valfritt, rekommenderas) Nästan direkt bearbetning med Gmail push
+Utan det här hämtas fakturor en gång om dagen (gratis-gränsen på Vercel
+tillåter cron-jobb max en gång/dygn). Med Gmail push-notiser via Google
+Cloud Pub/Sub (också gratis) bearbetas fakturor istället inom några
+sekunder efter att mejlet kommer in - det gamla en gång/dygn-jobbet blir
+kvar som en säkerhetsnätsavstämning och förnyar bara prenumerationen.
+
+1. I samma Google Cloud-projekt som ovan: **APIs & Services → Library** →
+   sök **Cloud Pub/Sub API** → **Enable**.
+2. **Pub/Sub → Topics → Create Topic**, ge den ett namn, t.ex.
+   `gmail-notifications`. Notera det fulla namnet, typ
+   `projects/DITT-PROJEKT-ID/topics/gmail-notifications`.
+3. Öppna det nya ämnet (topic) → fliken **Permissions** → **Add Principal**:
+   - Principal: `gmail-api-push@system.gserviceaccount.com`
+   - Role: **Pub/Sub Publisher**
+   - Spara (det här är Googles egen tjänst som behöver lov att skicka
+     notiser till ditt ämne).
+4. På samma ämne, **Create Subscription**:
+   - Delivery type: **Push**.
+   - Endpoint URL:
+     `https://DIN-DOMÄN.vercel.app/api/gmail/push?secret=EN-EGEN-HEMLIG-STRÄNG`
+     (hitta på en egen slumpad sträng - den skyddar webhooken från
+     utomstående, sätts även som `PUBSUB_SECRET` nedan).
+5. I Vercel, **Settings → Environment Variables**, lägg till:
+   - `GOOGLE_PUBSUB_TOPIC` = det fulla ämnesnamnet från steg 2
+     (`projects/.../topics/gmail-notifications`)
+   - `PUBSUB_SECRET` = samma hemliga sträng som i steg 4
+6. Redeploy.
+
+Klart - nästa gång en byrå ansluter Gmail (eller nästa gång det dagliga
+jobbet körs för redan anslutna byråer) registreras prenumerationen
+automatiskt, inget mer att göra per kund. Gmails prenumeration förnyas
+automatiskt av det dagliga jobbet (den löper annars ut efter ~7 dagar).
 
 ## Testa lokalt innan du visar kunden
 ```
@@ -156,9 +188,11 @@ den riktiga kodvägen, bara datan är i minnet.
 - `api/_media.py` - gissar rätt filtyp från filändelsen när webbläsaren
   skickar en otydlig `media_type` (t.ex. `application/octet-stream` för en
   PDF), så en riktig faktura inte skickas till AI:n som fel typ.
-- `api/_mail_logic.py` - Vercel Cron (en gång/dygn) loopar över varje byrå
-  som anslutit Gmail och kollar inkorgen via Gmail API (läs-only), kör varje
-  bilaga genom samma pipeline som manuell uppladdning.
+- `api/_mail_logic.py` - Gmail-inkorgskoll (läs-only): `handle_push_notification`
+  bearbetar nästan direkt via Gmail push (se `/api/gmail/push` i `index.py`),
+  `check_inbox` (Vercel Cron, en gång/dygn) är säkerhetsnät + förnyar
+  push-prenumerationen - båda kör samma extraherings-pipeline som manuell
+  uppladdning.
 - `api/_store.py` - Redis-klient (hash-baserad för uppslagning/uppdatering
   per id; skickar kommandon som POST-body, inte i URL:en, så det funkar även
   för stora filer).
