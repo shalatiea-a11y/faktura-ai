@@ -36,6 +36,16 @@ Python serverless API på Vercel + delad Redis-databas (Upstash).
    konto själva via **"Skapa konto"** (namn på byrå, e-post, lösenord).
    Varje byrå ser bara sina egna klienter och fakturor.
 
+### 3b. Din egen admin-vy (valfritt, bara för dig som äger tjänsten)
+1. **Settings → Environment Variables**, lägg till:
+   - `ADMIN_KEY` = en egen hemlig nyckel, bara du känner till den (skild
+     från byråernas lösenord).
+2. Gå till `https://DIN-DOMÄN.vercel.app/admin.html` (länken finns ingen-
+   stans i appen - bara du vet om den) och logga in med `ADMIN_KEY`.
+3. Där ser du alla byråer som skapat konto: antal klienter, fakturor, hur
+   många som behöver kontroll, totalt belopp, och om de kopplat in mejl-in
+   - men aldrig deras sparade fakturor eller filer i detalj.
+
 ### 4. AI-nyckel (Anthropic/Claude) - krävs för att extraktionen ska funka
 1. Skapa ett konto på **console.anthropic.com**, generera en API-nyckel.
 2. **Settings → Environment Variables**, lägg till:
@@ -101,12 +111,16 @@ den riktiga kodvägen, bara datan är i minnet.
 - `login.html` / `signup.html` - inloggning respektive kontoskapande.
 - `app.html` - själva appen (kräver inloggning): Översikt, Fakturor,
   Inställningar, i ett sidofält som blir en hamburgermeny på mobil.
+- `admin.html` - ägarens egen översikt över alla byråer (`ADMIN_KEY`, inte
+  länkad från appen).
 - `api/index.py` - den enda Vercel-entrypointen (Vercels Python-byggare vill
   ha en fil, inte flera). Servar även alla `.html`-sidor direkt.
 - `api/_auth.py` - konton: signup/login, lösenordshashning (pbkdf2), och
   signerade inloggningssessioner (`SESSION_SECRET`) - ersätter den gamla
   delade `CLIENT_KEY`.
 - `api/_users_logic.py` - kontoinställningar (mejl-in-uppgifter per byrå).
+- `api/_admin_logic.py` - aggregerad statistik över alla byråer, skild
+  auktorisering (`ADMIN_KEY`) från byråernas egna konton.
 - `api/_extract_logic.py` - anropar Claude, ber alltid om en JSON-array
   (även för enstaka fakturor) eftersom en fil kan innehålla flera.
 - `api/_invoices_logic.py` - validering/flaggning, spara/lista/redigera/

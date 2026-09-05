@@ -32,6 +32,7 @@ store_mod.hgetall = fake_hgetall
 store_mod.hdel = fake_hdel
 
 os.environ['SESSION_SECRET'] = 'dev-secret-local-only'
+os.environ['ADMIN_KEY'] = 'dev-admin-local-only'
 
 import _extract_logic
 

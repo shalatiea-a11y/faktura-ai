@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<title>Admin – Fakturaskanning</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<style>
+:root {
+  --bg: #f3f6fb; --surface: #ffffff; --surface-2: #f8fafc; --border: #e2e8f0;
+  --ink: #0f172a; --ink-dim: #475569; --ink-faint: #94a3b8;
+  --primary: #2563eb; --primary-dark: #1d4ed8; --primary-light: #eff6ff;
+  --warn: #d97706; --warn-bg: #fffbeb;
+  --success: #16a34a; --success-bg: #ecfdf3;
+  --error: #dc2626; --error-bg: #fef2f2;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(15,23,42,0.05), 0 4px 14px rgba(15,23,42,0.06);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); min-height: 100vh; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 60px; }
+h1 { font-size: 20px; margin: 0 0 4px; letter-spacing: -0.01em; }
+.sub { color: var(--ink-dim); font-size: 13px; margin-bottom: 24px; }
+
+.key-card {
+  max-width: 380px; margin: 80px auto; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 30px;
+}
+.key-card h1 { font-size: 18px; }
+input[type=text], input[type=password] {
+  width: 100%; padding: 10px 11px; border-radius: 8px; border: 1px solid var(--border);
+  background: #fff; color: var(--ink); font-family: inherit; font-size: 14px; margin: 12px 0;
+}
+input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 10px 16px;
+  font-weight: 700; font-size: 13.5px; cursor: pointer; font-family: inherit; width: 100%;
+}
+.btn:hover { background: var(--primary-dark); }
+.msg { font-size: 13px; margin-top: 10px; }
+.msg.error { color: var(--error); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+.stat-label { font-size: 11.5px; color: var(--ink-dim); font-weight: 600; margin-bottom: 6px; }
+.stat-value { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.stat-value.warn { color: var(--warn); }
+.stat-value.primary { color: var(--primary); }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { color: var(--ink-faint); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.badge.on { background: var(--success-bg); color: var(--success); }
+.badge.off { background: var(--surface-2); color: var(--ink-faint); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.empty { color: var(--ink-faint); font-size: 14px; padding: 20px 0; text-align: center; }
+
+@media (max-width: 900px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+</style>
+</head>
+<body>
+
+<div class="key-card" id="key-card">
+  <h1>Admin</h1>
+  <div class="sub">Endast för ägaren - inte länkad från appen.</div>
+  <input type="password" id="admin-key-input" placeholder="Admin-nyckel">
+  <button class="btn" id="key-submit">Visa översikt</button>
+  <div class="msg" id="key-msg"></div>
+</div>
+
+<div class="wrap" id="dashboard" style="display:none;">
+  <h1>Admin-översikt</h1>
+  <div class="sub">Alla byråer på denna deployment. Inte synlig för kunder.</div>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-label">Byråer</div><div class="stat-value" id="s-firms">–</div></div>
+    <div class="stat-card"><div class="stat-label">Klientföretag</div><div class="stat-value" id="s-companies">–</div></div>
+    <div class="stat-card"><div class="stat-label">Fakturor</div><div class="stat-value primary" id="s-invoices">–</div></div>
+    <div class="stat-card"><div class="stat-label">Behöver kontroll</div><div class="stat-value warn" id="s-review">–</div></div>
+    <div class="stat-card"><div class="stat-label">Totalt belopp</div><div class="stat-value" id="s-amount">–</div></div>
+  </div>
+
+  <div class="card">
+    <div id="firms-table"><div class="empty">Laddar…</div></div>
+  </div>
+</div>
+
+<script>
+function fmt(n) { return (Math.round((n || 0) * 100) / 100).toFixed(2) + ' kr'; }
+function fmtDate(ts) {
+  if (!ts) return '–';
+  return new Date(ts * 1000).toLocaleDateString('sv-SE');
+}
+
+let adminKey = sessionStorage.getItem('fa_admin_key') || '';
+
+async function loadOverview() {
+  const res = await fetch(`/api/admin/overview?key=${encodeURIComponent(adminKey)}`);
+  if (res.status === 403) {
+    sessionStorage.removeItem('fa_admin_key');
+    document.getElementById('key-card').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('key-msg').className = 'msg error';
+    document.getElementById('key-msg').textContent = 'Fel nyckel.';
+    return;
+  }
+  const data = await res.json();
+  document.getElementById('key-card').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  const t = data.totals || {};
+  document.getElementById('s-firms').textContent = t.firms ?? 0;
+  document.getElementById('s-companies').textContent = t.companies ?? 0;
+  document.getElementById('s-invoices').textContent = t.invoices ?? 0;
+  document.getElementById('s-review').textContent = t.needs_review ?? 0;
+  document.getElementById('s-amount').textContent = fmt(t.total_amount);
+
+  const firms = data.firms || [];
+  const box = document.getElementById('firms-table');
+  if (!firms.length) {
+    box.innerHTML = '<div class="empty">Inga byråer har skapat konto än.</div>';
+    return;
+  }
+  box.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Byrå</th><th>E-post</th><th>Skapad</th><th class="num">Klienter</th>
+        <th class="num">Fakturor</th><th class="num">Kontroll</th><th class="num">Belopp</th><th>Mejl-in</th>
+      </tr></thead>
+      <tbody>${firms.map((f) => `
+        <tr>
+          <td>${f.firm_name}</td>
+          <td>${f.email}</td>
+          <td>${fmtDate(f.created_at)}</td>
+          <td class="num">${f.companies}</td>
+          <td class="num">${f.invoices}</td>
+          <td class="num">${f.needs_review ? `<span class="badge warn">${f.needs_review}</span>` : '0'}</td>
+          <td class="num">${fmt(f.total_amount)}</td>
+          <td>${f.mail_configured ? '<span class="badge on">På</span>' : '<span class="badge off">Av</span>'}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+document.getElementById('key-submit').addEventListener('click', async () => {
+  adminKey = document.getElementById('admin-key-input').value.trim();
+  if (!adminKey) return;
+  sessionStorage.setItem('fa_admin_key', adminKey);
+  await loadOverview();
+});
+
+if (adminKey) loadOverview();
+</script>
+</body>
+</html>

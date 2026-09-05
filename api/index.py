@@ -19,6 +19,7 @@ import _files_logic as files_logic  # noqa: E402
 import _mail_logic as mail_logic  # noqa: E402
 import _auth as auth_logic  # noqa: E402
 import _users_logic as users_logic  # noqa: E402
+import _admin_logic as admin_logic  # noqa: E402
 from _store import StoreNotConfigured, StoreRequestFailed  # noqa: E402
 
 PROJECT_ROOT = os.path.join(os.path.dirname(__file__), '..')
@@ -29,6 +30,7 @@ STATIC_PAGES = {
     '/login.html': 'login.html',
     '/signup.html': 'signup.html',
     '/app.html': 'app.html',
+    '/admin.html': 'admin.html',
 }
 
 
@@ -78,6 +80,8 @@ class handler(BaseHTTPRequestHandler):
             code, payload = files_logic.get_file(key, file_id)
         elif path.startswith('/api/account'):
             code, payload = users_logic.get_account(key)
+        elif path.startswith('/api/admin/overview'):
+            code, payload = admin_logic.get_overview(key)
         else:
             code, payload = 404, {'error': 'not_found'}
 
