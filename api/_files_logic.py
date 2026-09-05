@@ -8,6 +8,8 @@ import uuid
 from _store import hset, hget, StoreNotConfigured
 from _auth import verify_session
 from _media import resolve_media_type
+import _events_logic as events_logic
+import _users_logic as users_logic
 
 MAX_FILE_BYTES = 8 * 1024 * 1024  # ~8MB before base64 - generous for a scanned invoice
 
@@ -41,7 +43,11 @@ def save_file(key, media_type, base64_data, filename=None):
     uid = verify_session(key)
     if not uid:
         return 403, {'error': 'forbidden'}
-    return _save_file_for(uid, media_type, base64_data, filename)
+    code, payload = _save_file_for(uid, media_type, base64_data, filename)
+    if code != 200:
+        firm_name = users_logic.get_firm_name(uid)
+        events_logic.log_event('file_error', uid, firm_name, detail=str(payload.get('error', ''))[:200])
+    return code, payload
 
 
 def get_file(key, file_id):

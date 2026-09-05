@@ -23,6 +23,7 @@ import time
 import uuid
 
 from _store import hset, hget, StoreNotConfigured
+import _events_logic as events_logic
 
 SESSION_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
 PBKDF2_ITERATIONS = 200_000
@@ -124,6 +125,7 @@ def signup(email, password, firm_name):
     token = _sign_session(uid)
     if not token:
         return 503, {'error': 'auth_not_configured'}
+    events_logic.log_event('signup', uid, firm_name, email)
     return 200, {'ok': True, 'token': token, 'firm_name': firm_name, 'email': email}
 
 
@@ -137,6 +139,7 @@ def login(email, password):
     except StoreNotConfigured:
         return 503, {'error': 'store_not_configured'}
     if not uid:
+        events_logic.log_event('login_failed', email=email, detail='okänd e-post')
         return 401, {'error': 'invalid_credentials'}
 
     try:
@@ -144,13 +147,23 @@ def login(email, password):
     except StoreNotConfigured:
         return 503, {'error': 'store_not_configured'}
     if not raw:
+        events_logic.log_event('login_failed', email=email, detail='okänd e-post')
         return 401, {'error': 'invalid_credentials'}
 
     user = json.loads(raw)
     if not _verify_password(password or '', user['salt'], user['password_hash']):
+        events_logic.log_event('login_failed', uid, user.get('firm_name', ''), email, detail='fel lösenord')
         return 401, {'error': 'invalid_credentials'}
 
     token = _sign_session(uid)
     if not token:
         return 503, {'error': 'auth_not_configured'}
+
+    user['last_login'] = int(time.time())
+    try:
+        hset('users', uid, json.dumps(user))
+    except StoreNotConfigured:
+        pass  # login already succeeded - don't fail it over a last_login bookkeeping write
+
+    events_logic.log_event('login_success', uid, user.get('firm_name', ''), email)
     return 200, {'ok': True, 'token': token, 'firm_name': user.get('firm_name', ''), 'email': user.get('email', '')}

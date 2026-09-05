@@ -42,27 +42,36 @@ input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px
 .msg { font-size: 13px; margin-top: 10px; }
 .msg.error { color: var(--error); }
 
-.stat-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 24px; }
+.stat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 24px; }
 .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
 .stat-label { font-size: 11.5px; color: var(--ink-dim); font-weight: 600; margin-bottom: 6px; }
 .stat-value { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
 .stat-value.warn { color: var(--warn); }
 .stat-value.primary { color: var(--primary); }
+.stat-value.error { color: var(--error); }
 
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; margin-bottom: 20px; }
+.card h2 { font-size: 14px; margin: 0 0 16px; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { color: var(--ink-faint); font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; }
 td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+td.detail { color: var(--ink-dim); max-width: 320px; white-space: normal; }
 .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
 .badge.on { background: var(--success-bg); color: var(--success); }
 .badge.off { background: var(--surface-2); color: var(--ink-faint); }
 .badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.error { background: var(--error-bg); color: var(--error); }
+.badge.primary { background: var(--primary-light); color: var(--primary-dark); }
 .empty { color: var(--ink-faint); font-size: 14px; padding: 20px 0; text-align: center; }
 
 @media (max-width: 900px) {
-  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .stat-grid { grid-template-columns: repeat(3, 1fr); }
   table { display: block; overflow-x: auto; white-space: nowrap; }
+  td.detail { white-space: nowrap; }
+}
+@media (max-width: 560px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>
 </head>
@@ -86,10 +95,17 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
     <div class="stat-card"><div class="stat-label">Fakturor</div><div class="stat-value primary" id="s-invoices">–</div></div>
     <div class="stat-card"><div class="stat-label">Behöver kontroll</div><div class="stat-value warn" id="s-review">–</div></div>
     <div class="stat-card"><div class="stat-label">Totalt belopp</div><div class="stat-value" id="s-amount">–</div></div>
+    <div class="stat-card"><div class="stat-label">Fel (senaste 100)</div><div class="stat-value error" id="s-errors">–</div></div>
   </div>
 
   <div class="card">
+    <h2>Byråer</h2>
     <div id="firms-table"><div class="empty">Laddar…</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Senaste händelser</h2>
+    <div id="events-table"><div class="empty">Laddar…</div></div>
   </div>
 </div>
 
@@ -99,6 +115,27 @@ function fmtDate(ts) {
   if (!ts) return '–';
   return new Date(ts * 1000).toLocaleDateString('sv-SE');
 }
+function fmtDateTime(ts) {
+  if (!ts) return '–';
+  return new Date(ts * 1000).toLocaleString('sv-SE');
+}
+
+const EVENT_LABELS = {
+  signup: 'Nytt konto',
+  login_success: 'Inloggning',
+  login_failed: 'Misslyckad inloggning',
+  extract_error: 'AI-fel',
+  file_error: 'Filfel',
+  mail_error: 'Mejl-in-fel',
+};
+const EVENT_BADGE_CLASS = {
+  signup: 'primary',
+  login_success: 'on',
+  login_failed: 'error',
+  extract_error: 'warn',
+  file_error: 'warn',
+  mail_error: 'warn',
+};
 
 let adminKey = sessionStorage.getItem('fa_admin_key') || '';
 
@@ -122,29 +159,50 @@ async function loadOverview() {
   document.getElementById('s-invoices').textContent = t.invoices ?? 0;
   document.getElementById('s-review').textContent = t.needs_review ?? 0;
   document.getElementById('s-amount').textContent = fmt(t.total_amount);
+  document.getElementById('s-errors').textContent = t.recent_errors ?? 0;
 
   const firms = data.firms || [];
   const box = document.getElementById('firms-table');
   if (!firms.length) {
     box.innerHTML = '<div class="empty">Inga byråer har skapat konto än.</div>';
+  } else {
+    box.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Byrå</th><th>E-post</th><th>Skapad</th><th>Senast inloggad</th><th class="num">Klienter</th>
+          <th class="num">Fakturor</th><th class="num">Kontroll</th><th class="num">Belopp</th><th>Mejl-in</th>
+        </tr></thead>
+        <tbody>${firms.map((f) => `
+          <tr>
+            <td>${f.firm_name}</td>
+            <td>${f.email}</td>
+            <td>${fmtDate(f.created_at)}</td>
+            <td>${fmtDateTime(f.last_login)}</td>
+            <td class="num">${f.companies}</td>
+            <td class="num">${f.invoices}</td>
+            <td class="num">${f.needs_review ? `<span class="badge warn">${f.needs_review}</span>` : '0'}</td>
+            <td class="num">${fmt(f.total_amount)}</td>
+            <td>${f.mail_configured ? '<span class="badge on">På</span>' : '<span class="badge off">Av</span>'}</td>
+          </tr>`).join('')}</tbody>
+      </table>`;
+  }
+
+  const events = data.recent_events || [];
+  const eventsBox = document.getElementById('events-table');
+  if (!events.length) {
+    eventsBox.innerHTML = '<div class="empty">Inga händelser än.</div>';
     return;
   }
-  box.innerHTML = `
+  eventsBox.innerHTML = `
     <table>
-      <thead><tr>
-        <th>Byrå</th><th>E-post</th><th>Skapad</th><th class="num">Klienter</th>
-        <th class="num">Fakturor</th><th class="num">Kontroll</th><th class="num">Belopp</th><th>Mejl-in</th>
-      </tr></thead>
-      <tbody>${firms.map((f) => `
+      <thead><tr><th>Tid</th><th>Typ</th><th>Byrå</th><th>E-post</th><th>Detalj</th></tr></thead>
+      <tbody>${events.map((e) => `
         <tr>
-          <td>${f.firm_name}</td>
-          <td>${f.email}</td>
-          <td>${fmtDate(f.created_at)}</td>
-          <td class="num">${f.companies}</td>
-          <td class="num">${f.invoices}</td>
-          <td class="num">${f.needs_review ? `<span class="badge warn">${f.needs_review}</span>` : '0'}</td>
-          <td class="num">${fmt(f.total_amount)}</td>
-          <td>${f.mail_configured ? '<span class="badge on">På</span>' : '<span class="badge off">Av</span>'}</td>
+          <td>${fmtDateTime(e.ts)}</td>
+          <td><span class="badge ${EVENT_BADGE_CLASS[e.type] || 'off'}">${EVENT_LABELS[e.type] || e.type}</span></td>
+          <td>${e.firm_name || '–'}</td>
+          <td>${e.email || '–'}</td>
+          <td class="detail">${e.detail || ''}</td>
         </tr>`).join('')}</tbody>
     </table>`;
 }

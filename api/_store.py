@@ -69,3 +69,18 @@ def hgetall(key):
 
 def hdel(key, field):
     return _call('hdel', key, field)
+
+
+def rpush(key, value):
+    """Appends to a list - used for the admin event log (signups, logins,
+    errors), which only needs a chronological feed, not lookup-by-id."""
+    return _call('rpush', key, value)
+
+
+def lrange(key, start, stop):
+    result = _call('lrange', key, start, stop)
+    return result.get('result') or []
+
+
+def ltrim(key, start, stop):
+    return _call('ltrim', key, start, stop)

@@ -9,6 +9,9 @@ import json
 import os
 
 from _store import hgetall, StoreNotConfigured
+import _events_logic as events_logic
+
+RECENT_EVENTS_LIMIT = 100
 
 
 def _check_admin_key(key):
@@ -54,6 +57,7 @@ def get_overview(key):
             'firm_name': user.get('firm_name', ''),
             'email': user.get('email', ''),
             'created_at': user.get('created_at', 0),
+            'last_login': user.get('last_login', 0),
             'companies': len(companies),
             'invoices': len(invoice_list),
             'needs_review': needs_review,
@@ -67,6 +71,10 @@ def get_overview(key):
 
     firms.sort(key=lambda f: f['created_at'], reverse=True)
 
+    recent_events = events_logic.list_events(RECENT_EVENTS_LIMIT)
+    error_types = {'login_failed', 'extract_error', 'file_error', 'mail_error'}
+    total_errors = sum(1 for e in recent_events if e.get('type') in error_types)
+
     return 200, {
         'ok': True,
         'totals': {
@@ -75,6 +83,8 @@ def get_overview(key):
             'invoices': total_invoices,
             'needs_review': total_needs_review,
             'total_amount': round(total_amount, 2),
+            'recent_errors': total_errors,
         },
         'firms': firms,
+        'recent_events': recent_events,
     }

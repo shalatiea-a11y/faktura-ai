@@ -5,7 +5,7 @@ the Inställningar page).
 """
 import json
 
-from _store import hset, hget, hgetall, StoreNotConfigured
+from _store import hset, hget, hgetall, StoreNotConfigured, StoreRequestFailed
 from _auth import verify_session
 
 
@@ -50,6 +50,20 @@ def update_mail_settings(key, mail_address, mail_app_password):
     except StoreNotConfigured:
         return 503, {'error': 'store_not_configured'}
     return 200, {'ok': True, 'account': _public_view(user)}
+
+
+def get_firm_name(uid):
+    """Best-effort firm name lookup for event-log labels - never raises."""
+    try:
+        raw = hget('users', uid)
+    except (StoreNotConfigured, StoreRequestFailed):
+        return ''
+    if not raw:
+        return ''
+    try:
+        return json.loads(raw).get('firm_name', '')
+    except json.JSONDecodeError:
+        return ''
 
 
 def list_mail_enabled_users():

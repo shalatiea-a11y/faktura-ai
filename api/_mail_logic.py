@@ -25,6 +25,7 @@ import _files_logic as files_logic
 import _extract_logic as extract_logic
 import _invoices_logic as invoices_logic
 import _users_logic as users_logic
+import _events_logic as events_logic
 
 ALLOWED_TYPES = ('application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic')
 
@@ -135,6 +136,10 @@ def check_inbox():
 
     per_firm = {}
     for user in firms:
-        per_firm[user['email']] = _check_one_inbox(user['id'], user['mail_address'], user['mail_app_password'])
+        result = _check_one_inbox(user['id'], user['mail_address'], user['mail_app_password'])
+        per_firm[user['email']] = result
+        if result['errors']:
+            summary = f"{len(result['errors'])} fel, t.ex. {result['errors'][0]}"[:200]
+            events_logic.log_event('mail_error', user['id'], user.get('firm_name', ''), user['email'], detail=summary)
 
     return 200, {'checked_firms': len(firms), 'results': per_firm}

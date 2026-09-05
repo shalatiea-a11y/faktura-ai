@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'api'))
 import _store as store_mod
 
 _fake_hashes = {}
+_fake_lists = {}
 
 def fake_hset(key, field, value):
     _fake_hashes.setdefault(key, {})[field] = value
@@ -26,10 +27,30 @@ def fake_hgetall(key):
 def fake_hdel(key, field):
     _fake_hashes.get(key, {}).pop(field, None)
 
+def fake_rpush(key, value):
+    _fake_lists.setdefault(key, []).append(value)
+
+def fake_lrange(key, start, stop):
+    lst = _fake_lists.get(key, [])
+    n = len(lst)
+    norm = lambda i: max(0, n + i) if i < 0 else min(i, n)
+    s, e = norm(start), norm(stop) + 1
+    return lst[s:e]
+
+def fake_ltrim(key, start, stop):
+    lst = _fake_lists.get(key, [])
+    n = len(lst)
+    norm = lambda i: max(0, n + i) if i < 0 else min(i, n)
+    s, e = norm(start), norm(stop) + 1
+    _fake_lists[key] = lst[s:e]
+
 store_mod.hset = fake_hset
 store_mod.hget = fake_hget
 store_mod.hgetall = fake_hgetall
 store_mod.hdel = fake_hdel
+store_mod.rpush = fake_rpush
+store_mod.lrange = fake_lrange
+store_mod.ltrim = fake_ltrim
 
 os.environ['SESSION_SECRET'] = 'dev-secret-local-only'
 os.environ['ADMIN_KEY'] = 'dev-admin-local-only'

@@ -16,6 +16,8 @@ import urllib.request
 
 from _auth import verify_session
 from _media import resolve_media_type, SUPPORTED
+import _events_logic as events_logic
+import _users_logic as users_logic
 
 MODEL = 'claude-sonnet-5'
 
@@ -42,9 +44,15 @@ PROMPT = (
 
 
 def extract_invoices(key, media_type, base64_data, filename=None):
-    if not verify_session(key):
+    uid = verify_session(key)
+    if not uid:
         return 403, {'error': 'forbidden'}
-    return _extract_invoices_internal(media_type, base64_data, filename)
+    code, payload = _extract_invoices_internal(media_type, base64_data, filename)
+    if code != 200:
+        firm_name = users_logic.get_firm_name(uid)
+        detail = payload.get('detail') or payload.get('error') or ''
+        events_logic.log_event('extract_error', uid, firm_name, detail=f"{payload.get('error')}: {detail}"[:200])
+    return code, payload
 
 
 def _extract_invoices_internal(media_type, base64_data, filename=None):
