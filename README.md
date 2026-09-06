@@ -144,6 +144,19 @@ python3 _local_test_server.py 8130
 (ingen riktig Anthropic-nyckel eller Redis behövs). Signup/login går mot
 den riktiga kodvägen, bara datan är i minnet.
 
+## Automatiserade tester
+```
+pip install -r requirements-dev.txt
+python3 -m pytest tests/ -v
+```
+En riktig, repeterbar testsvit (pytest) i `tests/` - täcker autentisering,
+behörighet/tenant-isolering (en byrå kan aldrig se en annans data), hela
+fakturaflödet (validering, dubblettkontroll, beloppstolerans, ombearbetning),
+filhantering, och Gmail-inhämtning (både daglig poll och push-notiser) - allt
+mot fejkade Redis/Claude/Gmail-anrop, ingen riktig nyckel eller nätverksanrop
+krävs. `requirements-dev.txt` installeras aldrig av Vercel (bara
+`requirements.txt`, som förblir tom), så detta påverkar inte produktionen.
+
 ## Hur det fungerar
 1. Byrån skapar ett konto (eller loggar in) på startsidan.
 2. Under **Fakturor**: väljer/skapar ett **klientföretag** (t.ex. "Kalles

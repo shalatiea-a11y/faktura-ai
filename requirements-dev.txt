@@ -1,0 +1,4 @@
+# Dev/test-only dependencies - NOT installed on Vercel (requirements.txt,
+# which stays empty, is what Vercel's Python builder reads). Install with:
+#   pip install -r requirements-dev.txt
+pytest

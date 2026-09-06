@@ -51,8 +51,13 @@ def _decode_subject(raw):
 
 
 def _get_or_create_uncategorized(uid):
+    # Matched by name, not by code: _make_code() truncates to 12 chars, so
+    # "Okategoriserat" (14 chars) can never actually receive the code
+    # "OKATEGORISERAT" - matching on that literal string here would create
+    # a brand-new duplicate "Okategoriserat" company on every single
+    # unmatched email instead of ever finding the one already created.
     for c in companies_logic._list_companies_for(uid).get('companies', []):
-        if c.get('code') == 'OKATEGORISERAT':
+        if (c.get('name') or '').strip().lower() == 'okategoriserat':
             return c
     _, payload = companies_logic._add_company_for(uid, 'Okategoriserat')
     return payload.get('company')
